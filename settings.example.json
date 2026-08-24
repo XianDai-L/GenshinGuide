@@ -1,0 +1,6 @@
+{
+  "provider": "deepseek",
+  "api_key": "",
+  "model": "",
+  "use_history": false
+}

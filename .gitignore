@@ -1,0 +1,25 @@
+# ===== 数据（第三方/版权/体积，不提交仓库）=====
+docs/
+index/
+models/
+data/relations.json
+.cache/
+
+# ===== 敏感信息 =====
+settings.json
+
+# ===== 运行日志（含玩家问题）=====
+logs/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
