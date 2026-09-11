@@ -3,6 +3,9 @@ docs/
 index/
 models/
 data/relations.json
+data/achievements.json
+data/achievement_manual.json
+data/uiaf_state.json
 .cache/
 
 # ===== 敏感信息 =====

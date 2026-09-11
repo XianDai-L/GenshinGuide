@@ -12,6 +12,7 @@
 
 import asyncio
 import io
+import json
 import os
 import re
 import shutil
@@ -20,6 +21,7 @@ import sys
 import ambr
 
 OUT_DIR = "D:/GenshinGuide/docs/gamedata"
+ACH_JSON = "D:/GenshinGuide/data/achievements.json"
 
 ELEMENT = {"Ice": "冰", "Fire": "火", "Water": "水", "Electric": "雷",
            "Wind": "风", "Rock": "岩", "Grass": "草"}
@@ -371,8 +373,14 @@ async def fetch_materials(client):
 
 
 async def fetch_achievements(client):
+    """拉取成就分类与成就条目。
+
+    同时生成 data/achievements.json（含成就 id / 所属辑 / 名称 / 条件 / 原石），
+    供成就管理模块与 UIAF（Yae 导出）的已完成状态匹配使用。
+    """
     cats = await client.fetch_achievement_categories()
     count = 0
+    records = []
     for cat in cats:
         cd = cat.model_dump()
         cat_name = cd.get("name", "")
@@ -387,11 +395,22 @@ async def fetch_achievements(client):
                 primos = sum(r.get("amount", 0) for r in (det.get("rewards") or []))
                 if title:
                     lines.append(f"【{title}】{desc}" + (f"（奖励：{primos}原石）" if primos else ""))
+                    records.append({
+                        "id": det.get("id"),
+                        "set": cat_name,
+                        "name": title,
+                        "cond": desc,
+                        "reward": primos,
+                    })
                     total += 1
         with io.open(os.path.join(OUT_DIR, f"成就_{safe_name(cat_name)}.txt"), "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         count += total
         await asyncio.sleep(1)
+    if records:
+        os.makedirs(os.path.dirname(ACH_JSON), exist_ok=True)
+        with io.open(ACH_JSON, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False)
     return count
 
 
@@ -442,7 +461,8 @@ async def main():
     only_weapon = "--weapon" in sys.argv
     only_character = "--character" in sys.argv
     only_talent_days = "--talent-days" in sys.argv
-    incremental = any((only_weapon, only_character, only_talent_days))
+    only_achievement = "--achievement" in sys.argv
+    incremental = any((only_weapon, only_character, only_talent_days, only_achievement))
     if incremental:
         os.makedirs(OUT_DIR, exist_ok=True)
     else:
@@ -470,6 +490,11 @@ async def main():
             n = await fetch_talent_book_days(client, mat_name)
             print(f"天赋书刷取时间更新: {n} 个")
             print("完成（仅刷取时间）")
+            return
+        if only_achievement:
+            n = await fetch_achievements(client)
+            print(f"成就: {n} 条（含 data/achievements.json）")
+            print("完成（仅成就）")
             return
         n = await fetch_characters(client, mat_name)
         print(f"角色: {n}")

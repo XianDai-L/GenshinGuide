@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补成就 · 完整版原型 v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #14151f; font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    display: flex; justify-content: center; align-items: flex-start;
+    min-height: 100vh; padding: 20px;
+  }
+  .window {
+    width: 380px; height: 680px; background: #1b1d2b; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column;
+    overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5); position: relative;
+  }
+  .titlebar {
+    height: 38px; flex: none; display: flex; align-items: center;
+    padding: 0 10px; gap: 8px; background: #232636;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .titlebar .title { flex: 1; color: #c9c9d4; font-size: 12px; }
+  .mode-btn { border: none; cursor: pointer; padding: 4px 12px; border-radius: 12px;
+    font-size: 12px; background: rgba(255,255,255,0.06); color: #9a9aa6; }
+  .mode-btn.active { background: #d4b66a; color: #1b1d2b; font-weight: bold; }
+
+  .view-switch { flex: none; display: flex; gap: 6px; padding: 8px 10px 4px; }
+  .view-switch button {
+    flex: 1; padding: 7px 0; border: none; border-radius: 7px; cursor: pointer;
+    font-size: 12px; background: #2a2e40; color: #d4b66a;
+  }
+  .view-switch button.active { background: #d4b66a; color: #1b1d2b; font-weight: bold; }
+  .toolbar { flex: none; display: flex; gap: 6px; padding: 0 10px 6px; }
+  .toolbar button {
+    flex: 1; padding: 6px 0; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 12px; background: #232636; color: #9a9aa6;
+  }
+  .toolbar button:hover { background: #2f3448; }
+
+  .subtabs { flex: none; display: flex; padding: 2px 10px 8px; gap: 6px; }
+  .subtab { flex: 1; padding: 6px 0; text-align: center; border-radius: 14px;
+    cursor: pointer; font-size: 12px; color: #9a9aa6; }
+  .subtab.active { background: rgba(212,182,106,0.16); color: #d4b66a; font-weight: bold; }
+
+  .content { flex: 1; overflow-y: auto; padding: 2px 10px 12px; }
+  .content::-webkit-scrollbar { width: 4px; }
+  .content::-webkit-scrollbar-thumb { background: #343950; border-radius: 2px; }
+
+  /* 总览：辑网格 */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .set-card {
+    background: #232636; border-radius: 10px; padding: 12px 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    border: 1px solid transparent; transition: .15s;
+  }
+  .set-card:hover { border-color: rgba(212,182,106,0.4); }
+  .set-card .icon { font-size: 26px; }
+  .set-card .name { color: #e6e6ee; font-size: 12px; text-align: center; line-height: 1.4; }
+  .prog-track { width: 100%; height: 6px; background: #14151f; border-radius: 3px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 3px; }
+  .prog-fill.done { background: #6fcf97; }
+  .prog-fill.part { background: #d4b66a; }
+  .set-card .count { color: #9a9aa6; font-size: 11px; }
+  .set-card .count b { color: #e6e6ee; }
+
+  /* 辑内成就列表（一横条一个成就） */
+  .detail-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .back { background: #2a2e40; color: #c9c9d4; border: none; border-radius: 6px;
+    padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  .detail-title { color: #e6e6ee; font-size: 13px; font-weight: bold; }
+  .ach-row { display: flex; align-items: center; gap: 8px;
+    background: #232636; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+  .ach-main { flex: 1; min-width: 0; }
+  .ach-name { font-size: 13px; margin-bottom: 2px; }
+  .ach-name.done { color: #7a7a88; text-decoration: line-through; }
+  .ach-name.undone { color: #fff; font-weight: bold; }
+  .ach-cond { font-size: 11px; color: #8a8a98; line-height: 1.35; }
+  .ach-cond.done { color: #5a5a66; }
+  .search-btn-sm { flex: none; border: none; border-radius: 5px; padding: 4px 8px;
+    cursor: pointer; font-size: 11px; background: rgba(212,182,106,0.14); color: #d4b66a; }
+  .search-btn-sm:hover { background: rgba(212,182,106,0.3); }
+  .checkbox { flex: none; width: 20px; height: 20px; border-radius: 5px; cursor: pointer;
+    border: 2px solid #4a4e62; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; color: #1b1d2b; transition: .12s; }
+  .checkbox.checked { background: #6fcf97; border-color: #6fcf97; }
+
+  /* 卡片视图 */
+  .filter-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .filter-bar select { flex: 1; background: #2a2e40; color: #e6e6ee; border: none;
+    border-radius: 6px; padding: 6px; font-size: 12px; cursor: pointer; }
+  .chk-only { display: flex; align-items: center; gap: 4px; font-size: 12px;
+    color: #9a9aa6; cursor: pointer; white-space: nowrap; }
+  .chk-only input { cursor: pointer; }
+  .card { background: #232636; border-radius: 12px; padding: 14px;
+    border: 1px solid rgba(212,182,106,0.18); }
+  .card .set-name { color: #8a8a98; font-size: 11px; margin-bottom: 8px; }
+  .card .ach-name { font-size: 17px; color: #fff; font-weight: bold;
+    margin-bottom: 8px; line-height: 1.35; }
+  .card .ach-cond { font-size: 12px; color: #b8b8c6; line-height: 1.5; margin-bottom: 12px; }
+  .prog-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .prog-track.big { flex: 1; height: 8px; }
+  .prog-num { font-size: 12px; color: #e6e6ee; }
+  .done-row { display: flex; gap: 10px; align-items: center; justify-content: center; }
+  .checkbox.big { width: 26px; height: 26px; border-radius: 6px; font-size: 16px; }
+  .done-btn { flex: 1; padding: 8px 0; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 13px; background: #6fcf97; color: #1b1d2b; font-weight: bold; }
+  .done-btn.undo { background: #2a2e40; color: #9a9aa6; }
+  .search-btn { width: 100%; margin-top: 12px; padding: 9px 0; border: none;
+    border-radius: 8px; cursor: pointer; font-size: 13px;
+    background: rgba(212,182,106,0.16); color: #d4b66a; }
+  .search-btn:hover { background: rgba(212,182,106,0.3); }
+  .nav { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .nav button { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 12px; background: #2a2e40; color: #c9c9d4; }
+  .nav button:hover { background: #343950; }
+  .nav .pos { color: #9a9aa6; font-size: 12px; }
+  .empty { text-align: center; color: #5a5a66; font-size: 12px; padding: 40px 0; }
+
+  /* 撤销 Toast */
+  .toast { position: absolute; left: 10px; right: 10px; bottom: 10px;
+    background: #2f3448; border: 1px solid rgba(212,182,106,0.3);
+    border-radius: 8px; padding: 9px 12px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: #e6e6ee; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    opacity: 0; transform: translateY(10px); transition: .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .toast .txt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast .undo-btn { border: none; background: #d4b66a; color: #1b1d2b;
+    border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="dot" style="background:#ff5f56"></span>
+    <span class="dot" style="background:#ffbd2e"></span>
+    <span class="dot" style="background:#27c93f"></span>
+    <span class="title">原神攻略助手</span>
+    <button class="mode-btn">问答</button>
+    <button class="mode-btn active">补成就</button>
+  </div>
+
+  <div class="view-switch">
+    <button id="vOverview" class="active" onclick="setView('overview')">🗂 成就总览</button>
+    <button id="vCard" onclick="setView('card')">🃏 成就卡片</button>
+  </div>
+  <div class="toolbar">
+    <button onclick="alert('导入 UIAF JSON')">⬆ 导入成就</button>
+    <button onclick="alert('导出当前进度')">⬇ 导出成就</button>
+  </div>
+
+  <div class="content" id="content"></div>
+
+  <div class="toast" id="toast">
+    <span class="txt" id="toastTxt"></span>
+    <button class="undo-btn" onclick="undo()">撤销</button>
+  </div>
+</div>
+
+<script>
+const MYSH_URL = "https://www.miyoushe.com/ys/search?keyword=";
+
+let ACHS = [
+  { id:84001, set:"挑战者·第三辑", name:"百战之躯", cond:"击败任意BOSS 100次。", cur:87, max:100, done:false },
+  { id:84002, set:"挑战者·第三辑", name:"无伤之王", cond:"无伤击败周本BOSS。", cur:0, max:1, done:false },
+  { id:84003, set:"天地万象", name:"妖鬼狂言百物语", cond:"集齐全套《鹮巷物语》。", cur:0, max:1, done:false },
+  { id:84004, set:"天地万象", name:"动物园大亨", cond:"使用「四方八方之网」捕获1只野外生物。", cur:30, max:30, done:true },
+  { id:84005, set:"天地万象", name:"俯瞰风景", cond:"抵达庆云顶的制高点。", cur:1, max:1, done:true },
+  { id:84006, set:"元素专家·第一辑", name:"元素大师", cond:"触发100次元素反应。", cur:64, max:100, done:false },
+  { id:84007, set:"神射手", name:"百步穿杨", cond:"射中远处的靶心。", cur:1, max:1, done:true },
+];
+
+// ===== 状态 =====
+let view = "overview";    // overview | card
+let ovTab = "all";        // 总览次级：all | undone | done
+let curSet = null;        // 总览里点开的辑（null=网格）
+let idx = 0, onlyUndone = true, setFilter = "__all__";
+let undoStack = [];
+let toastTimer = null;
+
+const setsOf = () => [...new Set(ACHS.map(a => a.set))];
+const isSetDone = s => ACHS.filter(a => a.set === s).every(a => a.done);
+const hasUndone = s => ACHS.some(a => a.set === s && !a.done);
+
+// 卡片视图的辑下拉：跟随"只看未完成"（只列有未完成成就的辑）
+function availableSets() {
+  let all = setsOf();
+  if (onlyUndone) all = all.filter(hasUndone);
+  return all;
+}
+
+function cardList() {
+  return ACHS.filter(a => {
+    if (onlyUndone && a.done) return false;
+    if (setFilter !== "__all__" && a.set !== setFilter) return false;
+    return true;
+  });
+}
+
+// ===== 渲染 =====
+function render() { view === "overview" ? renderOverview() : renderCard(); }
+
+function renderOverview() {
+  const c = document.getElementById("content");
+  const tabs = `<div class="subtabs">
+    <div class="subtab ${ovTab==='all'?'active':''}" onclick="ovTab='all';render()">全部</div>
+    <div class="subtab ${ovTab==='undone'?'active':''}" onclick="ovTab='undone';render()">未完成</div>
+    <div class="subtab ${ovTab==='done'?'active':''}" onclick="ovTab='done';render()">已完成</div>
+  </div>`;
+  if (curSet) { c.innerHTML = tabs + setDetailHTML(curSet); return; }
+
+  let groups = setsOf();
+  if (ovTab === "undone") groups = groups.filter(s => !isSetDone(s));
+  if (ovTab === "done") groups = groups.filter(s => isSetDone(s));
+  if (!groups.length) { c.innerHTML = tabs + '<div class="empty">无符合条件的辑</div>'; return; }
+
+  let html = tabs + '<div class="grid">';
+  groups.forEach(s => {
+    const g = ACHS.filter(a => a.set === s);
+    const d = g.filter(a => a.done).length, t = g.length;
+    html += `<div class="set-card" onclick="openSet('${s}')">
+      <div class="icon">${iconOf(s)}</div>
+      <div class="name">${s}</div>
+      <div class="prog-track"><div class="prog-fill ${d===t?'done':'part'}" style="width:${Math.round(d/t*100)}%"></div></div>
+      <div class="count"><b>${d}/${t}</b></div>
+    </div>`;
+  });
+  c.innerHTML = html + '</div>';
+}
+
+// 辑内成就列表（一横条一个成就）
+function setDetailHTML(s) {
+  let list = ACHS.filter(a => a.set === s);
+  if (ovTab === "undone") list = list.slice().sort((a,b) => (a.done?1:0)-(b.done?1:0));
+  if (ovTab === "done") list = list.slice().sort((a,b) => (b.done?1:0)-(a.done?1:0));
+  const d = ACHS.filter(a => a.set === s && a.done).length;
+  let html = `<div class="detail-head">
+      <button class="back" onclick="backToGrid()">‹ 返回</button>
+      <span class="detail-title">${iconOf(s)} ${s} <span style="color:#9a9aa6;font-size:11px">${d}/${list.length}</span></span>
+    </div>`;
+  list.forEach(a => {
+    const st = a.done ? "done" : "undone";
+    const prog = a.max > 1 ? `（${a.cur}/${a.max}）` : "";
+    html += `<div class="ach-row">
+        <div class="ach-main">
+          <div class="ach-name ${st}">${a.name}${prog}</div>
+          <div class="ach-cond ${st}">${a.cond}</div>
+        </div>
+        <button class="search-btn-sm" onclick="search('${a.name}')">搜攻略</button>
+        <div class="checkbox ${a.done?'checked':''}" onclick="toggleDone(${a.id})">${a.done?'✓':''}</div>
+      </div>`;
+  });
+  return html;
+}
+
+function iconOf(s) {
+  if (s.includes("挑战者") || s.includes("对决者")) return "⚔️";
+  if (s.includes("天地万象")) return "🌌";
+  if (s.includes("元素")) return "✨";
+  if (s.includes("神射手")) return "🎯";
+  return "🏆";
+}
+
+function openSet(s) { curSet = s; render(); }
+function backToGrid() { curSet = null; render(); }
+
+function renderCard() {
+  const c = document.getElementById("content");
+  // 若当前选中的辑在新筛选下失效，回退到全部辑
+  const av = availableSets();
+  if (setFilter !== "__all__" && !av.includes(setFilter)) setFilter = "__all__";
+
+  const filterHTML = `<div class="filter-bar">
+      <select onchange="setFilter=this.value;idx=0;render()">
+        <option value="__all__"${setFilter==="__all__"?" selected":""}>全部辑</option>
+        ${av.map(s=>`<option value="${s}"${setFilter===s?" selected":""}>${s}</option>`).join("")}
+      </select>
+      <label class="chk-only"><input type="checkbox" ${onlyUndone?"checked":""} onchange="onlyUndone=this.checked;idx=0;render()">只看未完成</label>
+    </div>`;
+
+  const L = cardList();
+  if (!L.length) { c.innerHTML = filterHTML + '<div class="empty">没有符合条件的成就<br>（可关掉"只看未完成"或换一个辑）</div>'; return; }
+  if (idx >= L.length) idx = L.length - 1;
+  if (idx < 0) idx = 0;
+  const a = L[idx];
+  const pct = Math.min(100, Math.round(a.cur / a.max * 100));
+  const full = a.cur >= a.max;
+
+  c.innerHTML = filterHTML + `
+    <div class="card">
+      <div class="set-name">${a.set}</div>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-cond">${a.cond}</div>
+      <div class="prog-row">
+        <div class="prog-track big"><div class="prog-fill ${full?'done':'part'}" style="width:${pct}%"></div></div>
+        <span class="prog-num">${a.cur}/${a.max}</span>
+      </div>
+      <div class="done-row">
+        <div class="checkbox big ${a.done?'checked':''}" onclick="toggleDone(${a.id})">${a.done?'✓':''}</div>
+        <button class="done-btn ${a.done?'undo':''}" onclick="toggleDone(${a.id})">${a.done?'取消完成':'✔ 标记完成'}</button>
+      </div>
+    </div>
+    <button class="search-btn" onclick="search('${a.name}')">🔍 米游社搜「${a.name}」攻略</button>
+    <div class="nav">
+      <button onclick="prev()">‹ 上一个</button>
+      <span class="pos">${idx+1} / ${L.length}</span>
+      <button onclick="next()">下一个 ›</button>
+    </div>`;
+}
+
+// ===== 操作（两个视图共用，状态天然同步） =====
+function toggleDone(id) {
+  const a = ACHS.find(x => x.id === id);
+  undoStack.push({ id, done: a.done, cur: a.cur });
+  a.done = !a.done;
+  if (a.done) a.cur = a.max;
+  showToast(a.done ? `已标记完成：${a.name}` : `已取消完成：${a.name}`);
+  if (a.done && view === "card") idx = Math.min(idx, Math.max(0, cardList().length - 1));
+  render();
+}
+
+function undo() {
+  const rec = undoStack.pop();
+  if (!rec) { hideToast(); return; }
+  const a = ACHS.find(x => x.id === rec.id);
+  a.done = rec.done; a.cur = rec.cur;
+  if (view === "card") {
+    const L = cardList();
+    const ni = L.findIndex(x => x.id === rec.id);
+    if (ni >= 0) idx = ni;
+  }
+  hideToast();
+  render();
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  document.getElementById("toastTxt").textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 4000);
+}
+function hideToast() {
+  document.getElementById("toast").classList.remove("show");
+  clearTimeout(toastTimer);
+}
+
+function next() { idx++; render(); }
+function prev() { idx--; render(); }
+function search(n) { window.open(MYSH_URL + encodeURIComponent(n), "_blank"); }
+function setView(v) {
+  view = v;
+  document.getElementById("vOverview").classList.toggle("active", v === "overview");
+  document.getElementById("vCard").classList.toggle("active", v === "card");
+  if (v === "card") idx = 0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

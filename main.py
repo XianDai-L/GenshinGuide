@@ -19,6 +19,7 @@ import time
 # 确保能从任意工作目录（如桌面 bat 双击）导入同目录模块
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import achieve_ui
 import agent
 import knowledge
 import llm
@@ -34,6 +35,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QListWidget,
     QTextBrowser,
+    QStackedWidget,
     QVBoxLayout,
     QHBoxLayout,
     QFrame,
@@ -56,44 +58,59 @@ NO_RESULT_MSG = "抱歉，暂时没找到相关攻略。\n（可尝试换个问�
 
 STYLE = """
 #overlay {
-    background-color: rgba(22, 24, 32, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 10px;
+    background-color: rgba(20, 22, 30, 0.95);
+    border: 1px solid rgba(212, 182, 106, 0.28);
+    border-radius: 12px;
 }
 #titleBar {
-    background-color: rgba(42, 46, 60, 0.95);
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
+    background-color: rgba(32, 35, 48, 0.98);
+    border-top-left-radius: 11px;
+    border-top-right-radius: 11px;
+    border-bottom: 1px solid rgba(212, 182, 106, 0.16);
 }
-#titleLabel { color: #ffffff; font-weight: bold; font-size: 14px; }
-QPushButton { font-size: 13px; }
+#titleLabel { color: #f5e6c8; font-weight: bold; font-size: 14px; }
+QPushButton { font-size: 12px; }
 QPushButton#lockBtn {
-    background: transparent; color: #c9c9c9; border: none;
-    padding: 4px 10px; border-radius: 4px;
+    background: transparent; color: #b8b8c8; border: none;
+    padding: 4px 10px; border-radius: 5px;
 }
-QPushButton#lockBtn:hover { background: rgba(255,255,255,0.14); color: #ffffff; }
-QPushButton#lockBtn:checked { background: rgba(255,180,60,0.22); color: #ffb43c; }
+QPushButton#lockBtn:hover { background: rgba(212,182,106,0.18); color: #f0e0b8; }
+QPushButton#lockBtn:checked {
+    background: rgba(212,182,106,0.3); color: #d4b66a; font-weight: bold;
+}
 QPushButton#closeBtn {
-    background: transparent; color: #c9c9c9; border: none;
-    padding: 4px 10px; border-radius: 4px; font-size: 15px;
+    background: transparent; color: #b8b8c8; border: none;
+    padding: 4px 10px; border-radius: 5px; font-size: 15px;
 }
-QPushButton#closeBtn:hover { background: rgba(255,80,80,0.25); color: #ff6b6b; }
+QPushButton#closeBtn:hover { background: rgba(255,90,90,0.28); color: #ff7b7b; }
 QTextBrowser#chatList {
     background: transparent; border: none;
-    color: #e6e6e6; padding: 4px;
+    color: #f0f0f5; padding: 6px; font-size: 13px;
+    selection-background-color: rgba(212,182,106,0.32);
 }
 QLineEdit#inputEdit {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.22);
-    border-radius: 6px; padding: 8px 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(212,182,106,0.3);
+    border-radius: 8px; padding: 8px 12px;
     color: #ffffff; font-size: 13px;
 }
-QPushButton#sendBtn {
-    background: #4a90e2; color: #ffffff; border: none;
-    border-radius: 6px; padding: 8px 14px; font-size: 13px;
+QLineEdit#inputEdit:focus {
+    border: 1px solid rgba(212,182,106,0.7);
+    background: rgba(255,255,255,0.1);
 }
-QPushButton#sendBtn:hover { background: #5a9ff2; }
-QLabel#hintLabel { color: rgba(255,255,255,0.45); font-size: 11px; }
+QPushButton#sendBtn {
+    background: #d4b66a; color: #1b1d2b; border: none;
+    border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: bold;
+}
+QPushButton#sendBtn:hover { background: #e3c87e; }
+QLabel#hintLabel { color: rgba(255,255,255,0.42); font-size: 11px; }
+QScrollBar:vertical { background: transparent; width: 6px; margin: 0; }
+QScrollBar::handle {
+    background: rgba(212,182,106,0.28); border-radius: 3px; min-height: 24px;
+}
+QScrollBar::handle:hover { background: rgba(212,182,106,0.5); }
+QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
+QScrollBar:horizontal { height: 0; }
 """
 
 
@@ -133,6 +150,13 @@ class TitleBar(QFrame):
         log_btn.setToolTip("查看问答日志与统计（可观测）")
         log_btn.clicked.connect(self.window.open_log_panel)
         layout.addWidget(log_btn)
+
+        achieve_btn = QPushButton("补成就")
+        achieve_btn.setObjectName("lockBtn")
+        achieve_btn.setCheckable(True)
+        achieve_btn.setToolTip("切换到补成就模式（总览 / 卡片）")
+        achieve_btn.clicked.connect(self.window.switch_mode)
+        layout.addWidget(achieve_btn)
 
         close_btn = QPushButton("×")
         close_btn.setObjectName("closeBtn")
@@ -528,7 +552,9 @@ class OverlayWindow(QWidget):
         self.title_bar = TitleBar(self)
         root.addWidget(self.title_bar)
 
-        body = QVBoxLayout()
+        # ===== 问答页 =====
+        chat_page = QWidget()
+        body = QVBoxLayout(chat_page)
         body.setContentsMargins(10, 8, 10, 10)
         body.setSpacing(8)
 
@@ -559,8 +585,25 @@ class OverlayWindow(QWidget):
         hint.setWordWrap(True)
         body.addWidget(hint)
 
-        root.addLayout(body)
-        self.resize(380, 520)
+        # ===== 补成就页 =====
+        self.achieve_panel = achieve_ui.AchievePanel(self)
+
+        # 堆叠：问答 / 补成就（窗口大小不变）
+        self.stack = QStackedWidget()
+        self.stack.addWidget(chat_page)
+        self.stack.addWidget(self.achieve_panel)
+        root.addWidget(self.stack, 1)
+
+        self.resize(380, 560)
+
+    def switch_mode(self):
+        """切换问答模式 / 补成就模式（标题栏按钮）。"""
+        btn = self.sender()
+        if isinstance(btn, QPushButton) and btn.isChecked():
+            self.stack.setCurrentWidget(self.achieve_panel)
+            self.achieve_panel.refresh()
+        else:
+            self.stack.setCurrentIndex(0)
 
     def _place_at_right(self):
         screen = QApplication.primaryScreen().availableGeometry()
@@ -605,7 +648,7 @@ class OverlayWindow(QWidget):
 
     def _start_search(self, question):
         """后台检索（+可选 LLM 组织），期间显示「思考中…」。"""
-        self.chat_list.setTextColor(QColor("#e6e6e6"))
+        self.chat_list.setTextColor(QColor("#a8a8b8"))  # 次要色，与正式回答区分
         self.chat_list.append("助手：思考中…")
         self.chat_list.moveCursor(QTextCursor.End)
         self.chat_list.ensureCursorVisible()
@@ -645,7 +688,8 @@ class OverlayWindow(QWidget):
         self.chat_list.ensureCursorVisible()
 
     def _add_message(self, sender, text, right=False):
-        self.chat_list.setTextColor(QColor("#8fd0ff" if right else "#e6e6e6"))
+        # 用户消息用金色（原神风格），助手消息用亮白（高对比易读）
+        self.chat_list.setTextColor(QColor("#d4b66a" if right else "#f0f0f5"))
         self.chat_list.append(f"{sender}：{text}")
         # 只保留最近 MAX_CHAT_ITEMS 段，自动清理最早的
         while self.chat_list.document().blockCount() > MAX_CHAT_ITEMS:
