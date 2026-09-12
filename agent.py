@@ -87,6 +87,7 @@ TOOLS = [
             "description": (
                 "查询角色的推荐配置信息。kind 支持：专武、下位替代武器、推荐圣遗物、"
                 "圣遗物备选、圣遗物主词条、玩法、命座使用率、配队。"
+                "注意：玩法字段是英文原文，需要你用中文转述给玩家。"
             ),
             "parameters": {
                 "type": "object",
@@ -153,18 +154,11 @@ def _execute_tool(name, args):
         if name == "search_relation":
             char = (args.get("character") or "").strip()
             kind = (args.get("kind") or "").strip()
-            rel = rag.load_relations().get(char)
-            if not rel or not rel.get(kind):
+            # 与规则层共用同一实现，保证两条链路答案一致
+            out = rag.search_relation(char, kind)
+            if not out:
                 return f"关系表里没有「{char}」的{kind}数据"
-            val = rel[kind]
-            if isinstance(val, list):
-                if val and isinstance(val[0], list):
-                    val = "\n".join(" + ".join(str(x) for x in team) for team in val)
-                else:
-                    val = "、".join(str(x) for x in val)
-            elif isinstance(val, dict):
-                val = "、".join(f"{k}命{int(float(v) * 100)}%" for k, v in val.items())
-            return f"{char}的{kind}：{val}"
+            return out
     except Exception as e:  # noqa: BLE001
         return f"工具执行出错：{e}"
     return "未知工具"

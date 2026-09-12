@@ -25,8 +25,8 @@ import knowledge
 import llm
 import rag
 
-from PySide6.QtCore import Qt, QTimer, QThread, Signal
-from PySide6.QtGui import QColor, QFont, QTextCursor
+from PySide6.QtCore import Qt, QPoint, QEvent, QTimer, QThread, Signal
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QListWidget,
-    QTextBrowser,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -49,12 +49,47 @@ from PySide6.QtWidgets import (
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(ROOT_DIR, "logs")
 QA_LOG_FILE = os.path.join(LOG_DIR, "qa.jsonl")
+DATA_DIR = os.path.join(ROOT_DIR, "data")
+WINDOW_STATE_FILE = os.path.join(DATA_DIR, "window_state.json")
+ICON_CACHE_DIR = os.path.join(DATA_DIR, "icon_cache")
+ICON_SIZE = 44  # 气泡内图标边长（px）
+ICON_TIMEOUT = 6  # 图标下载超时（秒）；数据源在境外，无代理时会走满超时
 _qa_lock = threading.Lock()
 
 APP_NAME = "原神攻略助手"
 MAX_REPLY_LEN = 1200  # 单条回复最大字符数，超长限长+摘要，避免聊天列表渲染截断
 MAX_CHAT_ITEMS = 200  # 聊天列表最多保留条数，超出自动清理最早的
+BUBBLE_MAX_WIDTH = 250  # 聊天气泡最大宽度（窗口 380 宽，留出左右方向差）
 NO_RESULT_MSG = "抱歉，暂时没找到相关攻略。\n（可尝试换个问法；RAG 检索覆盖冷门问题。）"
+
+# 推荐配置类意图 -> 关系表字段（命中即走规则层，免 LLM、毫秒级）
+RELATION_INTENT_MAP = {
+    "专武": ["专武", "专属武器", "毕业武器", "本命武器"],
+    "下位替代武器": ["下位替代武器", "下位替代", "替代武器", "下位武器", "平替武器", "平替"],
+    "推荐圣遗物": ["推荐圣遗物", "圣遗物推荐", "用什么圣遗物", "带什么圣遗物", "圣遗物用什么"],
+    "圣遗物备选": ["圣遗物备选", "备选圣遗物", "圣遗物替代"],
+    "圣遗物主词条": ["圣遗物主词条", "主词条", "词条怎么选", "堆什么", "堆啥", "堆哪些"],
+    "命座使用率": ["命座使用率", "命座占比"],
+    "配队": ["配队", "阵容", "队友", "和谁搭", "搭配谁", "队伍搭配"],
+}
+# 「培养」类问题需要一次聚合多个关系字段，否则回答会空泛
+# 只收窄到明确的"养成方案"问法，避免"胡桃培养材料"被误判成推荐配置
+GROWTH_KEYWORDS = ["怎么养", "怎么练", "怎么培养", "养成方案", "培养方案", "怎么配装"]
+GROWTH_KINDS = ["专武", "推荐圣遗物", "圣遗物主词条", "配队"]
+# 问"用什么武器"既可能在问武器类型、也可能在问专武 -> 两者都答，避免漏答
+WEAPON_HINT_KEYWORDS = ["武器类型", "什么武器", "用什么武器", "拿什么武器"]
+
+
+def _relation_intents(text):
+    """识别推荐配置意图，返回要查的关系表字段列表（未命中返回 []）。"""
+    if any(kw in text for kw in GROWTH_KEYWORDS):
+        return list(GROWTH_KINDS)
+    best, best_len = None, 0
+    for kind, kws in RELATION_INTENT_MAP.items():
+        for kw in kws:
+            if kw in text and len(kw) > best_len:
+                best, best_len = kind, len(kw)
+    return [best] if best else []
 
 STYLE = """
 #overlay {
@@ -83,11 +118,20 @@ QPushButton#closeBtn {
     padding: 4px 10px; border-radius: 5px; font-size: 15px;
 }
 QPushButton#closeBtn:hover { background: rgba(255,90,90,0.28); color: #ff7b7b; }
-QTextBrowser#chatList {
-    background: transparent; border: none;
-    color: #f0f0f5; padding: 6px; font-size: 13px;
-    selection-background-color: rgba(212,182,106,0.32);
+QScrollArea#chatScroll { background: transparent; border: none; }
+QScrollArea#chatScroll > QWidget > QWidget { background: transparent; }
+QWidget#chatBox { background: transparent; }
+QFrame#bubbleAssistant { background: #333850; border-radius: 10px; }
+QFrame#bubbleUser { background: #d4b66a; border-radius: 10px; }
+QLabel#bubbleName { color: #9aa0b5; font-size: 10px; }
+QLabel#bubbleNameUser { color: #6a5518; font-size: 10px; }
+QLabel#bubbleText { color: #eef0f6; font-size: 13px; }
+QLabel#bubbleTextUser { color: #23200f; font-size: 13px; }
+QPushButton#newMsgBtn {
+    background: rgba(212,182,106,0.94); color: #1b1d2b; border: none;
+    border-radius: 12px; padding: 5px 12px; font-size: 11px; font-weight: bold;
 }
+QPushButton#newMsgBtn:hover { background: #e3c87e; }
 QLineEdit#inputEdit {
     background: rgba(255,255,255,0.07);
     border: 1px solid rgba(212,182,106,0.3);
@@ -151,12 +195,12 @@ class TitleBar(QFrame):
         log_btn.clicked.connect(self.window.open_log_panel)
         layout.addWidget(log_btn)
 
-        achieve_btn = QPushButton("补成就")
-        achieve_btn.setObjectName("lockBtn")
-        achieve_btn.setCheckable(True)
-        achieve_btn.setToolTip("切换到补成就模式（总览 / 卡片）")
-        achieve_btn.clicked.connect(self.window.switch_mode)
-        layout.addWidget(achieve_btn)
+        self.achieve_btn = QPushButton("补成就")
+        self.achieve_btn.setObjectName("lockBtn")
+        self.achieve_btn.setCheckable(True)
+        self.achieve_btn.setToolTip("切换到补成就模式（总览 / 卡片）")
+        self.achieve_btn.clicked.connect(self.window.switch_mode)
+        layout.addWidget(self.achieve_btn)
 
         close_btn = QPushButton("×")
         close_btn.setObjectName("closeBtn")
@@ -195,23 +239,44 @@ def _truncate_text(text, max_len=MAX_REPLY_LEN):
     return cut.rstrip() + "\n……（内容较长，已截断，可追问具体字段）"
 
 
-def _hit_type(content):
-    """判断 search_character 返回的是强字段命中还是完整档案。
+def _titled(src, content):
+    """给档案内容补一行「实体名（类型）」标题；内容已带标题则原样返回。
 
-    字段级提取命中 -> 'field'（规则层已精确回答）；
-    返回完整档案（首行是"XX（角色）"等标题）-> 'full'（规则层未答到点，交 Agent）。
+    取代原先直接显示文件名（如 【角色_胡桃.txt】），让回复更像人话。
     """
-    first = content.splitlines()[0] if content.splitlines() else ""
-    if any(k in first for k in ("（角色）", "（武器）", "（圣遗物）", "（材料）", "（成就）")):
-        return "full"
-    return "field"
+    kind, name = rag.entity_of_source(src)
+    if not kind:
+        return f"【{os.path.basename(src)}】\n{content}"
+    title = f"{name}（{kind}）"
+    first = content.splitlines()[0].strip() if content.splitlines() else ""
+    if first == title:
+        return content
+    return f"{title}\n{content}"
+
+
+def _related_weapon_profile(char, kinds):
+    """问「专武」时，顺带给出那把武器的「默认回复」（全部字段 + 图标）。
+
+    只在用户**明确就问专武**时展开（kinds == ["专武"]）；
+    「怎么养」这类聚合意图已含 专武 + 圣遗物 + 主词条 + 配队，再展开武器档案会失去重点。
+    """
+    if kinds != ["专武"]:
+        return ""
+    weapon = rag.get_relation(char, "专武")
+    if not weapon:
+        return ""
+    hit = rag.search_character(weapon.strip(), apply_default=True, field_match=False)
+    if not hit:
+        return ""
+    content, src = hit
+    return "\n\n" + _titled(src, content)
 
 
 def _search_reply(text):
-    """纯检索逻辑（可在后台线程运行）：字段级精确匹配 -> 关键词库 -> RAG 降级。
+    """纯检索逻辑（可在后台线程运行）：关系表 -> 字段级精确匹配 -> 关键词库 -> RAG 降级。
 
-    返回 (文本, 命中类型, trace)。命中类型：'field' 字段级 / 'full' 完整档案（弱命中）/
-    'keyword' 关键词库 / 'rag' 向量检索 / None 全部未命中。
+    返回 (文本, 命中类型, trace)。命中类型：'field' 精确命中（关系表 / 档案字段 /
+    默认回复 / 成就名）/ 'keyword' 关键词库 / 'rag' 向量检索 / None 全部未命中。
     trace 记录各层尝试、耗时、RAG 就绪状态与错误（供日志观测）。
     """
     trace = {"path": [], "rag_ready": rag.is_ready(), "rag_error": None, "matched": None}
@@ -222,13 +287,52 @@ def _search_reply(text):
         trace["ms_rule"] = int((time.time() - t0) * 1000)
         return text_, hit_type_, trace
 
+    def _char_hit(q):
+        """档案命中：按「默认回复」策略返回（角色 = 核心 6 项，其他 = 全部字段）。"""
+        char = rag.search_character(q, apply_default=True)
+        if not char:
+            return None
+        content, src = char
+        reply = _titled(src, content)
+        # "用什么武器"既可问武器类型也可问专武 -> 补充专武，避免漏答
+        if "武器类型：" in content and any(kw in q for kw in WEAPON_HINT_KEYWORDS):
+            ent = rag.entity_of_source(src)[1]
+            extra = rag.search_relation(ent, "专武")
+            if extra:
+                reply += f"\n\n【{ent}·专武】\n{extra}"
+        return reply, "field", src
+
     try:
+        # ① 推荐配置（关系表）：专武/下位替代/推荐圣遗物/主词条/配队等，免 LLM 直接答
+        intents = _relation_intents(text)
+        if intents:
+            ent = rag.match_entity(text)
+            if ent:
+                blocks = []
+                for kind in intents:
+                    val = rag.search_relation(ent, kind)
+                    if val:
+                        blocks.append(f"【{ent}·{kind}】\n{val}")
+                if blocks:
+                    trace["path"].append("关系表")
+                    reply = "\n\n".join(blocks)
+                    reply += _related_weapon_profile(ent, intents)
+                    return _mk(reply, "field", f"relations:{ent}")
+                # 识别到推荐类意图但关系表未收录：如实告知，
+                # 避免回退到字段排序后答一堆无关字段（看似答了，其实答非所问）
+                trace["path"].append("关系表未收录")
+                return _mk(
+                    f"关系表暂未收录「{ent}」的{intents[0]}数据。\n"
+                    "可以改问该角色的元素、武器类型、突破材料等档案字段。",
+                    "field",
+                    f"relations-miss:{ent}",
+                )
+        # ② 字段级精确匹配
         if any(kw in text for kw in rag.OBJECTIVE_KEYWORDS):
             trace["path"].append("字段级")
-            char = rag.search_character(text)
-            if char:
-                content, src = char
-                return _mk(f"【{src}】\n{content}", _hit_type(content), src)
+            hit = _char_hit(text)
+            if hit:
+                return _mk(*hit)
             answer, _, _ = knowledge.find_answer(text)
             if answer:
                 trace["path"].append("关键词库")
@@ -238,15 +342,20 @@ def _search_reply(text):
             answer, _, _ = knowledge.find_answer(text)
             if answer:
                 return _mk(answer, "keyword")
-        # RAG 降级：先角色精确匹配，再向量检索
+        # ③ RAG 降级：实体档案 -> 具体成就名 -> 全局向量检索
         trace["path"].append("RAG")
         try:
-            char = rag.search_character(text)
-            if char:
-                content, src = char
-                return _mk(f"【{src}】\n{content}", _hit_type(content), src)
+            hit = _char_hit(text)
+            if hit:
+                return _mk(*hit)
         except Exception as e:
             trace["rag_error"] = f"search_character: {e}"
+        # 成就名不是档案文件名，search_character 找不到，需按成就名单独查
+        ach = rag.search_achievement(text)
+        if ach:
+            content, src = ach
+            trace["path"].append("成就名")
+            return _mk(_titled(src, content), "field", src)
         r0 = time.time()
         results, rerr = rag.search(text, top_k=2)
         trace["rag_ms"] = int((time.time() - r0) * 1000)
@@ -513,18 +622,180 @@ class LogPanel(QDialog):
         return widget
 
 
+def _load_window_pos():
+    """读取上次保存的窗口坐标；若已不在任何屏幕可见区域内（如拔掉副屏）则返回 None。"""
+    try:
+        with io.open(WINDOW_STATE_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        x, y = int(data["x"]), int(data["y"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    for screen in QApplication.screens():
+        if screen.availableGeometry().contains(QPoint(x + 10, y + 10)):
+            return x, y
+    return None
+
+
+def _write_window_pos(x, y):
+    """把窗口坐标写入 data/window_state.json（data/ 不入库，不影响仓库）。"""
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with io.open(WINDOW_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"x": int(x), "y": int(y)}, f)
+    except OSError:
+        pass
+
+
+ICON_LINE_PREFIX = "图标："
+
+
+def _split_icon(text):
+    """从回复文本里摘出图标 URL，返回 (去掉图标行的正文, url 或 None)。
+
+    图标改用图片控件单独渲染，所以正文里不再保留这行。
+    """
+    url = None
+    keep = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(ICON_LINE_PREFIX):
+            candidate = stripped[len(ICON_LINE_PREFIX):].strip()
+            if candidate.startswith("http"):
+                if url is None:
+                    url = candidate
+                continue
+        keep.append(line)
+    return "\n".join(keep).strip("\n"), url
+
+
+def _icon_cache_path(url):
+    """图标本地缓存路径（data/icon_cache/<md5>.png），避免同角色反复下载。"""
+    import hashlib
+
+    return os.path.join(ICON_CACHE_DIR, hashlib.md5(url.encode("utf-8")).hexdigest() + ".png")
+
+
+class IconLoader(QThread):
+    """后台下载图标并落盘缓存。
+
+    必须异步：数据源在境外（gi.yatta.moe），无代理时同步请求会一直等到超时，
+    把悬浮窗卡住几秒。失败静默（emit None）——图标是锦上添花，不能影响正文。
+    """
+
+    loaded = Signal(object)  # 图片字节；失败为 None
+
+    def __init__(self, url, parent=None):
+        super().__init__(parent)
+        self.url = url
+
+    def run(self):
+        data = None
+        try:
+            import requests
+
+            resp = requests.get(self.url, timeout=ICON_TIMEOUT)
+            if resp.status_code == 200 and resp.content:
+                data = resp.content
+        except Exception:
+            data = None
+        if data:
+            try:
+                os.makedirs(ICON_CACHE_DIR, exist_ok=True)
+                with open(_icon_cache_path(self.url), "wb") as f:
+                    f.write(data)
+            except OSError:
+                pass
+        self.loaded.emit(data)
+
+
+class ChatBubble(QFrame):
+    """单条聊天气泡：助手深灰（靠左）/ 用户金色（靠右）。
+
+    气泡内为「发送者名 + 图标（可选）+ 正文」；正文可选中复制。
+    dim=True 用于「思考中…」弱化显示。
+    """
+
+    def __init__(self, sender, text, is_user=False, dim=False):
+        super().__init__()
+        self._is_user = is_user
+        self._icon_worker = None
+        self.setObjectName("bubbleUser" if is_user else "bubbleAssistant")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setMaximumWidth(BUBBLE_MAX_WIDTH)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 7, 10, 8)
+        lay.setSpacing(3)
+        name = QLabel(sender)
+        name.setObjectName("bubbleNameUser" if is_user else "bubbleName")
+        # 图标：默认隐藏（隐藏的 widget 不占布局空间），拿到图片再显示
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setObjectName("bubbleIcon")
+        self.icon_lbl.setFixedSize(ICON_SIZE, ICON_SIZE)
+        self.icon_lbl.setVisible(False)
+        self.text_lbl = QLabel()
+        self.text_lbl.setObjectName("bubbleTextUser" if is_user else "bubbleText")
+        self.text_lbl.setWordWrap(True)
+        self.text_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        lay.addWidget(name)
+        lay.addWidget(self.icon_lbl)
+        lay.addWidget(self.text_lbl)
+        self.set_text(text, dim=dim)
+
+    def set_text(self, text, dim=False):
+        """更新正文（用于「思考中…」占位气泡替换为正式回复）。"""
+        body, url = _split_icon(text or "")
+        self.text_lbl.setStyleSheet("color:#9aa0b5;" if dim else "")
+        self.text_lbl.setText(body)
+        if url and not self._is_user:
+            self._load_icon(url)
+
+    def _load_icon(self, url):
+        path = _icon_cache_path(url)
+        if os.path.isfile(path):  # 命中缓存：直接读本地，不联网
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                self._show_icon(pixmap)
+                return
+        self._icon_worker = IconLoader(url, self)
+        self._icon_worker.loaded.connect(self._on_icon_loaded)
+        self._icon_worker.start()
+
+    def _on_icon_loaded(self, data):
+        if not data:
+            return  # 下载失败：静默隐藏，正文照常
+        pixmap = QPixmap()
+        if pixmap.loadFromData(data):
+            self._show_icon(pixmap)
+
+    def _show_icon(self, pixmap):
+        self.icon_lbl.setPixmap(
+            pixmap.scaled(ICON_SIZE, ICON_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+        self.icon_lbl.setVisible(True)
+
+
 class OverlayWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.locked = False
-        self.last_entity = None  # 多轮对话上下文：记住最近提到的实体
         self._history = []  # 多轮对话历史（最多 5 轮，用于 LLM 上下文）
+        self._rows = []  # 聊天气泡行 widget（用于超限清理最早消息）
+        self._at_bottom = True  # 聊天区是否停在底部（S1 自动滚动依据）
+        self._want_bottom = True  # 是否跟随到底（用户上滑则置否，回到底部恢复）
+        self._pending_bubble = None  # 「思考中」占位气泡引用
         self.setObjectName("overlay")
         self.setWindowTitle(APP_NAME)
         self._build_ui()
         self._apply_flags()
         self.setStyleSheet(STYLE)
-        self._place_at_right()
+
+        # 窗口位置持久化：移动后防抖保存，避免拖动时高频写盘
+        self._pos_timer = QTimer(self)
+        self._pos_timer.setSingleShot(True)
+        self._pos_timer.timeout.connect(self._save_window_pos)
+        self._restore_or_place()
+
+        self.achieve_panel.back_to_chat.connect(self._exit_achieve_mode)
         self._append_welcome()
 
         self.show()
@@ -558,13 +829,35 @@ class OverlayWindow(QWidget):
         body.setContentsMargins(10, 8, 10, 10)
         body.setSpacing(8)
 
-        self.chat_list = QTextBrowser()
-        self.chat_list.setObjectName("chatList")
-        self.chat_list.setReadOnly(True)
-        self.chat_list.setOpenExternalLinks(False)
-        self.chat_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.chat_list.setFont(QFont("Microsoft YaHei", 9))
-        body.addWidget(self.chat_list, 1)
+        # 聊天区：QScrollArea + 气泡列表（助手靠左 / 用户靠右）
+        self.chat_scroll = QScrollArea()
+        self.chat_scroll.setObjectName("chatScroll")
+        self.chat_scroll.setWidgetResizable(True)
+        self.chat_scroll.setFrameShape(QFrame.NoFrame)
+        self.chat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.chat_scroll.viewport().setAutoFillBackground(False)
+        self.chat_scroll.setFont(QFont("Microsoft YaHei", 9))
+        self.chat_scroll.installEventFilter(self)
+
+        self.chat_box = QWidget()
+        self.chat_box.setObjectName("chatBox")
+        self.chat_box.setAttribute(Qt.WA_StyledBackground, True)
+        self.chat_lay = QVBoxLayout(self.chat_box)
+        self.chat_lay.setContentsMargins(2, 2, 2, 2)
+        self.chat_lay.setSpacing(8)
+        self.chat_lay.addStretch(1)  # 末尾留白：消息自顶部开始堆叠
+        self.chat_scroll.setWidget(self.chat_box)
+        body.addWidget(self.chat_scroll, 1)
+
+        # 「↓ 新消息」提示：用户上滑看历史时浮出，点击回到底部
+        self.new_msg_btn = QPushButton("↓ 新消息", self.chat_scroll)
+        self.new_msg_btn.setObjectName("newMsgBtn")
+        self.new_msg_btn.setCursor(Qt.PointingHandCursor)
+        self.new_msg_btn.clicked.connect(self._scroll_to_bottom)
+        self.new_msg_btn.hide()
+
+        self.chat_scroll.verticalScrollBar().valueChanged.connect(self._on_chat_scrolled)
+        self.chat_scroll.verticalScrollBar().rangeChanged.connect(self._on_chat_range_changed)
 
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
@@ -599,11 +892,47 @@ class OverlayWindow(QWidget):
     def switch_mode(self):
         """切换问答模式 / 补成就模式（标题栏按钮）。"""
         btn = self.sender()
-        if isinstance(btn, QPushButton) and btn.isChecked():
+        self._set_achieve_mode(btn.isChecked() if isinstance(btn, QPushButton) else False)
+
+    def _set_achieve_mode(self, achieve):
+        """统一入口：切换视图 + 同步标题栏按钮文案，返回引导更直观。"""
+        self.title_bar.achieve_btn.setChecked(achieve)
+        if achieve:
             self.stack.setCurrentWidget(self.achieve_panel)
             self.achieve_panel.refresh()
+            self.title_bar.achieve_btn.setText("‹ 返回问答")
+            self.title_bar.achieve_btn.setToolTip("返回问答模式")
         else:
             self.stack.setCurrentIndex(0)
+            self.title_bar.achieve_btn.setText("补成就")
+            self.title_bar.achieve_btn.setToolTip("切换到补成就模式（总览 / 卡片）")
+
+    def _exit_achieve_mode(self):
+        """补成就面板内「返回问答」按钮触发。"""
+        self._set_achieve_mode(False)
+
+    def _restore_or_place(self):
+        """优先还原上次窗口位置；无记录或坐标失效则放到屏幕右侧默认位。"""
+        pos = _load_window_pos()
+        if pos:
+            self.move(*pos)
+        else:
+            self._place_at_right()
+
+    def _save_window_pos(self):
+        _write_window_pos(self.pos().x(), self.pos().y())
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        # 防抖：拖动过程中不写盘，停下约 300ms 后保存一次
+        if getattr(self, "_pos_timer", None) is not None:
+            self._pos_timer.start(300)
+
+    def closeEvent(self, event):
+        if getattr(self, "_pos_timer", None) is not None:
+            self._pos_timer.stop()
+        self._save_window_pos()
+        super().closeEvent(event)
 
     def _place_at_right(self):
         screen = QApplication.primaryScreen().availableGeometry()
@@ -634,72 +963,129 @@ class OverlayWindow(QWidget):
             self._add_message("助手", "上一条还在处理中，请稍候…", right=False)
             self.input_edit.clear()
             return
-        self._add_message("我", text, right=True)
+        self._add_message("我", text, right=True, force_bottom=True)
         self._pending_question = text  # 保存原始问题（用于历史记录）
         self.input_edit.clear()
-        # 实体上下文：省略主语时用上一实体补充（如先问桑多涅，再问"最高提升多少"）
-        # Agent 模式（配了 key）不做补全——LLM 通过多轮历史理解省略；离线规则层才需要补全
-        entity = rag.match_entity(text)
-        if entity:
-            self.last_entity = entity
-        elif self.last_entity and not llm.is_configured():
-            text = f"{self.last_entity} {text}"
         self._start_search(text)
 
+    # ===== 聊天区（气泡） =====
+    def eventFilter(self, obj, event):
+        # 聊天区尺寸变化时，重新定位「↓ 新消息」浮层按钮
+        if obj is self.chat_scroll and event.type() == QEvent.Resize:
+            self._position_new_msg_btn()
+        return super().eventFilter(obj, event)
+
+    @staticmethod
+    def _make_row(bubble, is_user):
+        """把气泡包进一行：用户靠右、助手靠左。"""
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(0)
+        if is_user:
+            h.addStretch(1)
+            h.addWidget(bubble)
+        else:
+            h.addWidget(bubble)
+            h.addStretch(1)
+        return row
+
+    def _insert_bubble(self, sender, text, is_user, dim=False):
+        """插入一条气泡并做超限清理，返回气泡对象。"""
+        bubble = ChatBubble(sender, text, is_user=is_user, dim=dim)
+        row = self._make_row(bubble, is_user)
+        self.chat_lay.insertWidget(self.chat_lay.count() - 1, row)
+        self._rows.append(row)
+        while len(self._rows) > MAX_CHAT_ITEMS:
+            old = self._rows.pop(0)
+            old.setParent(None)
+            old.deleteLater()
+        return bubble
+
+    def _add_message(self, sender, text, right=False, dim=False, force_bottom=False):
+        """追加一条气泡（助手左 / 用户右），并按 S1 规则决定是否自动滚到底。"""
+        was_at_bottom = self._at_bottom or force_bottom
+        if force_bottom:
+            # 用户主动发送：立即视为停在底部，让后续「思考中/回复」继续跟随
+            self._at_bottom = True
+        bubble = self._insert_bubble(sender, text, right, dim)
+        self._schedule_scroll(was_at_bottom)
+        return bubble
+
+    def _on_chat_scrolled(self, value):
+        sb = self.chat_scroll.verticalScrollBar()
+        self._at_bottom = value >= sb.maximum() - 4
+        if self._at_bottom:
+            self._want_bottom = True  # 用户回到底部 → 恢复跟随
+            self.new_msg_btn.hide()
+        else:
+            self._want_bottom = False  # 用户上滑查看历史 → 停止跟随
+
+    def _on_chat_range_changed(self, _min, _max):
+        # 内容高度异步变化时（布局未完成），若仍要跟随则补滚到底
+        if self._want_bottom:
+            sb = self.chat_scroll.verticalScrollBar()
+            sb.setValue(sb.maximum())
+
+    def _scroll_to_bottom(self):
+        self._want_bottom = True
+        sb = self.chat_scroll.verticalScrollBar()
+        sb.setValue(sb.maximum())
+        self.new_msg_btn.hide()
+
+    def _position_new_msg_btn(self):
+        m = 10
+        self.new_msg_btn.adjustSize()
+        r = self.chat_scroll.rect()
+        self.new_msg_btn.move(
+            r.right() - self.new_msg_btn.width() - m,
+            r.bottom() - self.new_msg_btn.height() - m,
+        )
+
+    def _show_new_msg_hint(self):
+        self._position_new_msg_btn()
+        self.new_msg_btn.show()
+        self.new_msg_btn.raise_()
+
+    def _schedule_scroll(self, was_at_bottom):
+        # S1：仅当用户本就停在底部时才跟随到底；否则保持位置并提示「↓ 新消息」
+        if was_at_bottom:
+            self._want_bottom = True
+            QTimer.singleShot(0, self._follow_bottom)
+        else:
+            self._want_bottom = False
+            QTimer.singleShot(0, self._show_new_msg_hint)
+
+    def _follow_bottom(self):
+        if self._want_bottom:
+            sb = self.chat_scroll.verticalScrollBar()
+            sb.setValue(sb.maximum())
+
     def _start_search(self, question):
-        """后台检索（+可选 LLM 组织），期间显示「思考中…」。"""
-        self.chat_list.setTextColor(QColor("#a8a8b8"))  # 次要色，与正式回答区分
-        self.chat_list.append("助手：思考中…")
-        self.chat_list.moveCursor(QTextCursor.End)
-        self.chat_list.ensureCursorVisible()
+        """后台检索（+可选 LLM 组织），期间显示「思考中…」占位气泡。"""
         s = llm.load_settings()
         history = self._history if s.get("use_history") else []
+        was_at_bottom = self._at_bottom
+        self._pending_bubble = self._insert_bubble("助手", "思考中…", is_user=False, dim=True)
+        self._schedule_scroll(was_at_bottom)
         self._worker = SearchWorker(question, history)
         self._worker.finished.connect(self._on_search_done)
         self._worker.start()
 
     def _on_search_done(self, status, result):
-        # 用完整回复替换"思考中…"占位段
-        self.chat_list.setTextColor(QColor("#e6e6e6"))
-        self._replace_pending("助手：" + result)
+        # 直接把「思考中…」占位气泡更新为完整回复
+        was_at_bottom = self._at_bottom
+        if self._pending_bubble is not None:
+            self._pending_bubble.set_text(result or "")
+            self._pending_bubble = None
+        else:
+            self._insert_bubble("助手", result or "", is_user=False)
         # 记录多轮对话历史（最多 5 轮）；错误消息不记录
         if result and getattr(self, "_pending_question", None) and not result.startswith("抱歉，处理出错了"):
             self._history.append({"user": self._pending_question, "assistant": result})
             if len(self._history) > 5:
                 self._history.pop(0)
-        self.chat_list.moveCursor(QTextCursor.End)
-        self.chat_list.ensureCursorVisible()
-
-    def _replace_pending(self, text):
-        """把"思考中…"占位替换为完整回复。
-
-        用文档文本级重建（定位占位标记 -> 保留前缀 + 拼接回复），
-        不依赖 QTextBlock/QTextCursor 的边界行为，跨 Qt 版本最可靠。
-        """
-        marker = "助手：思考中…"
-        plain = self.chat_list.toPlainText()
-        idx = plain.rfind(marker)
-        self.chat_list.setTextColor(QColor("#e6e6e6"))
-        if idx >= 0:
-            self.chat_list.setPlainText(plain[:idx] + text)
-        else:
-            self.chat_list.append(text)
-        self.chat_list.moveCursor(QTextCursor.End)
-        self.chat_list.ensureCursorVisible()
-
-    def _add_message(self, sender, text, right=False):
-        # 用户消息用金色（原神风格），助手消息用亮白（高对比易读）
-        self.chat_list.setTextColor(QColor("#d4b66a" if right else "#f0f0f5"))
-        self.chat_list.append(f"{sender}：{text}")
-        # 只保留最近 MAX_CHAT_ITEMS 段，自动清理最早的
-        while self.chat_list.document().blockCount() > MAX_CHAT_ITEMS:
-            cur = QTextCursor(self.chat_list.document())
-            cur.movePosition(QTextCursor.Start)
-            cur.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
-            cur.removeSelectedText()
-            cur.deleteChar()  # 删除段落分隔符
-        self.chat_list.moveCursor(QTextCursor.End)
-        self.chat_list.ensureCursorVisible()
+        self._schedule_scroll(was_at_bottom)
 
     def _keep_on_top(self):
         if self.isVisible():

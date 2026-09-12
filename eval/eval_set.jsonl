@@ -1,62 +1,89 @@
-{"question": "胡桃突破材料", "expected": ["霓裳花", "燃愿玛瑙"], "type": "field", "note": "角色突破材料"}
-{"question": "胡桃是什么元素", "expected": ["火"], "type": "field", "note": "角色元素"}
-{"question": "胡桃武器类型", "expected": ["长柄"], "type": "field", "note": "角色武器类型"}
-{"question": "胡桃生日", "expected": ["7月15日", "7月"], "type": "field", "note": "角色生日"}
-{"question": "砂糖是什么元素", "expected": ["风"], "type": "field", "note": "角色元素"}
-{"question": "砂糖是几星", "expected": ["4星", "4"], "type": "field", "note": "角色星级"}
-{"question": "钟离是什么元素", "expected": ["岩"], "type": "field", "note": "角色元素"}
-{"question": "钟离武器类型", "expected": ["长柄"], "type": "field", "note": "角色武器类型"}
-{"question": "钟离生日", "expected": ["12月31日", "12月"], "type": "field", "note": "角色生日"}
-{"question": "甘雨是什么元素", "expected": ["冰"], "type": "field", "note": "角色元素"}
-{"question": "甘雨用什么武器", "expected": ["弓"], "type": "field", "note": "角色武器类型"}
-{"question": "甘雨生日", "expected": ["12月2日", "12月"], "type": "field", "note": "角色生日"}
-{"question": "甘雨是几星", "expected": ["5星", "5"], "type": "field", "note": "角色星级"}
-{"question": "雷电将军是什么元素", "expected": ["雷"], "type": "field", "note": "角色元素"}
-{"question": "雷电将军武器类型", "expected": ["长柄"], "type": "field", "note": "角色武器类型"}
-{"question": "雷电将军生日", "expected": ["6月26日", "6月"], "type": "field", "note": "角色生日"}
-{"question": "温迪是什么元素", "expected": ["风"], "type": "field", "note": "角色元素"}
-{"question": "纳西妲是什么元素", "expected": ["草"], "type": "field", "note": "角色元素"}
-{"question": "夜兰是什么元素", "expected": ["水"], "type": "field", "note": "角色元素"}
-{"question": "阿蕾奇诺是什么元素", "expected": ["火"], "type": "field", "note": "角色元素"}
-{"question": "那维莱特是什么元素", "expected": ["水"], "type": "field", "note": "角色元素"}
-{"question": "那维莱特武器类型", "expected": ["法器"], "type": "field", "note": "角色武器类型"}
-{"question": "雷泽武器类型", "expected": ["双手剑"], "type": "field", "note": "角色武器类型"}
-{"question": "久岐忍用什么武器", "expected": ["单手剑"], "type": "field", "note": "角色武器类型"}
-{"question": "可莉是几星", "expected": ["5星", "5"], "type": "field", "note": "角色星级"}
-{"question": "枫原万叶是什么元素", "expected": ["风"], "type": "field", "note": "角色元素"}
-{"question": "妮露是什么元素", "expected": ["水"], "type": "field", "note": "角色元素"}
-{"question": "提纳里是什么元素", "expected": ["草"], "type": "field", "note": "角色元素"}
-{"question": "渔获基础攻击力", "expected": ["510"], "type": "field", "note": "武器白值"}
-{"question": "渔获特效", "expected": ["船歌", "16"], "type": "field", "note": "武器特效"}
-{"question": "渔获是几星", "expected": ["4星", "4"], "type": "field", "note": "武器星级"}
-{"question": "护摩之杖特效", "expected": ["生命值", "20"], "type": "field", "note": "武器特效"}
-{"question": "护摩之杖副属性", "expected": ["暴击伤害", "暴击"], "type": "field", "note": "武器副属性"}
-{"question": "护摩之杖是几星", "expected": ["5星", "5"], "type": "field", "note": "武器星级"}
-{"question": "炽烈的炎之魔女2件套效果", "expected": ["火元素"], "type": "field", "note": "圣遗物套装"}
-{"question": "炽烈的炎之魔女4件套效果", "expected": ["超载", "蒸发"], "type": "field", "note": "圣遗物套装"}
-{"question": "绝缘之旗印2件套效果", "expected": ["充能"], "type": "field", "note": "圣遗物套装"}
-{"question": "黄金剧团2件套效果", "expected": ["战技", "元素战技"], "type": "field", "note": "圣遗物套装"}
-{"question": "胡桃天赋升级材料", "expected": ["勤劳"], "type": "field", "note": "天赋材料（逐级聚合）"}
-{"question": "胡桃天赋6升7要什么", "expected": ["哲学"], "type": "field", "note": "天赋区间查询"}
-{"question": "胡桃天赋1升10总共要多少", "expected": ["哲学", "摩拉"], "type": "field", "note": "天赋总量"}
-{"question": "「勤劳」的教导什么时候刷", "expected": ["周"], "type": "field", "note": "材料刷取时间"}
-{"question": "「繁荣」的教导什么时候刷", "expected": ["周"], "type": "field", "note": "材料刷取时间"}
-{"question": "「公平」的指引什么时候刷", "expected": ["周"], "type": "field", "note": "材料刷取时间"}
-{"question": "元素反应有哪些", "expected": ["蒸发", "融化"], "type": "keyword", "note": "通用知识库"}
-{"question": "超载是什么反应", "expected": ["爆炸", "火"], "type": "keyword", "note": "通用知识库"}
-{"question": "感电是什么反应", "expected": ["雷", "持续"], "type": "keyword", "note": "通用知识库"}
-{"question": "冻结是什么反应", "expected": ["定身", "冻结"], "type": "keyword", "note": "通用知识库"}
-{"question": "渔获值得练吗", "expected": ["渔获"], "type": "rag", "note": "模糊问题，宽容判定"}
-{"question": "护摩之杖好用吗", "expected": ["护摩"], "type": "rag", "note": "模糊问题，宽容判定"}
-{"question": "阿巴阿巴阿巴", "expected": [], "type": "none", "note": "应无回答"}
-{"question": "今天天气怎么样", "expected": [], "type": "none", "note": "应无回答"}
-{"question": "王者荣耀怎么玩", "expected": [], "type": "none", "note": "应无回答"}
-{"question": "什么是量子力学", "expected": [], "type": "none", "note": "应无回答"}
-{"question": "胡桃的专武", "expected": ["护摩之杖"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "雷电将军的专武", "expected": ["薙草之稻光"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "那维莱特的专武", "expected": ["万世流涌大典"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "玛薇卡用什么武器", "expected": ["焚曜千阳"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "芙宁娜推荐圣遗物", "expected": ["黄金剧团"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "钟离推荐圣遗物", "expected": ["千岩"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "胡桃圣遗物主词条", "expected": ["暴击", "生命值"], "type": "agent", "note": "关系表（Agent）"}
-{"question": "胡桃怎么养", "expected": ["护摩之杖"], "type": "agent", "note": "组合问题（Agent）"}
+{"question": "胡桃突破材料", "must": ["霓裳花", "燃愿玛瑙"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色突破材料"}
+{"question": "胡桃是什么元素", "must": ["火"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "胡桃武器类型", "must": ["长柄"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "胡桃生日", "must": ["7月15"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色生日"}
+{"question": "砂糖是什么元素", "must": ["风"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "砂糖是几星", "must": ["4星"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色星级"}
+{"question": "钟离是什么元素", "must": ["岩"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "钟离武器类型", "must": ["长柄"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "钟离生日", "must": ["12月31"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色生日"}
+{"question": "甘雨是什么元素", "must": ["冰"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "甘雨用什么武器", "must": ["弓"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "甘雨生日", "must": ["12月2"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色生日"}
+{"question": "甘雨是几星", "must": ["5星"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色星级"}
+{"question": "雷电将军是什么元素", "must": ["雷"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "雷电将军武器类型", "must": ["长柄"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "雷电将军生日", "must": ["6月26"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色生日"}
+{"question": "温迪是什么元素", "must": ["风"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "纳西妲是什么元素", "must": ["草"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "夜兰是什么元素", "must": ["水"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "阿蕾奇诺是什么元素", "must": ["火"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "那维莱特是什么元素", "must": ["水"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "那维莱特武器类型", "must": ["法器"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "雷泽武器类型", "must": ["双手剑"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "久岐忍用什么武器", "must": ["单手剑"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色武器类型"}
+{"question": "可莉是几星", "must": ["5星"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色星级"}
+{"question": "枫原万叶是什么元素", "must": ["风"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "妮露是什么元素", "must": ["水"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "提纳里是什么元素", "must": ["草"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "角色元素"}
+{"question": "渔获基础攻击力", "must": ["510"], "must_not": ["图标：", "简介："], "type": "field", "note": "武器白值"}
+{"question": "渔获特效", "must": ["船歌"], "must_not": ["图标："], "type": "field", "note": "武器特效"}
+{"question": "渔获是几星", "must": ["4星"], "must_not": ["图标：", "简介："], "type": "field", "note": "武器星级"}
+{"question": "护摩之杖特效", "must": ["生命值"], "must_not": ["图标："], "type": "field", "note": "武器特效"}
+{"question": "护摩之杖副属性", "must": ["暴击伤害"], "must_not": ["图标：", "简介："], "type": "field", "note": "武器副属性"}
+{"question": "护摩之杖是几星", "must": ["5星"], "must_not": ["图标：", "简介："], "type": "field", "note": "武器星级"}
+{"question": "炽烈的炎之魔女2件套效果", "must": ["火元素"], "must_not": ["图标："], "type": "field", "note": "圣遗物套装"}
+{"question": "炽烈的炎之魔女4件套效果", "must": ["超载"], "must_not": ["图标："], "type": "field", "note": "圣遗物套装"}
+{"question": "绝缘之旗印2件套效果", "must": ["充能"], "must_not": ["图标："], "type": "field", "note": "圣遗物套装"}
+{"question": "黄金剧团2件套效果", "must": ["战技"], "must_not": ["图标："], "type": "field", "note": "圣遗物套装"}
+{"question": "胡桃天赋升级材料", "must": ["勤劳"], "must_not": ["图标："], "type": "field", "note": "天赋材料（逐级聚合）"}
+{"question": "胡桃天赋6升7要什么", "must": ["哲学"], "must_not": ["图标："], "type": "field", "note": "天赋区间查询"}
+{"question": "胡桃天赋1升10总共要多少", "must": ["哲学", "摩拉"], "must_not": ["图标："], "type": "field", "note": "天赋总量"}
+{"question": "「勤劳」的教导什么时候刷", "must": ["周"], "must_not": ["图标："], "type": "field", "note": "材料刷取时间"}
+{"question": "「繁荣」的教导什么时候刷", "must": ["周"], "must_not": ["图标："], "type": "field", "note": "材料刷取时间"}
+{"question": "「公平」的指引什么时候刷", "must": ["周"], "must_not": ["图标："], "type": "field", "note": "材料刷取时间"}
+{"question": "元素反应有哪些", "must": ["蒸发", "融化"], "must_not": [], "type": "keyword", "note": "通用知识库"}
+{"question": "超载是什么反应", "must": ["爆炸"], "must_not": [], "type": "keyword", "note": "通用知识库"}
+{"question": "感电是什么反应", "must": ["雷", "持续"], "must_not": [], "type": "keyword", "note": "通用知识库"}
+{"question": "冻结是什么反应", "must": ["定身"], "must_not": [], "type": "keyword", "note": "通用知识库"}
+{"question": "阿巴阿巴阿巴", "must": [], "must_not": [], "type": "none", "note": "应无回答"}
+{"question": "今天天气怎么样", "must": [], "must_not": [], "type": "none", "note": "应无回答"}
+{"question": "王者荣耀怎么玩", "must": [], "must_not": [], "type": "none", "note": "应无回答"}
+{"question": "什么是量子力学", "must": [], "must_not": [], "type": "none", "note": "应无回答"}
+{"question": "胡桃的专武", "must": ["护摩之杖", "基础攻击力：608", "副属性：暴击伤害", "特效：无羁的朱赤之蝶"], "must_not": [], "type": "field", "note": "问专武：名字 + 该武器默认回复（全部字段）"}
+{"question": "雷电将军的专武", "must": ["薙草之稻光"], "must_not": [], "type": "field", "note": "关系表接入规则层"}
+{"question": "那维莱特的专武", "must": ["万世流涌大典"], "must_not": [], "type": "field", "note": "关系表接入规则层"}
+{"question": "玛薇卡用什么武器", "must": ["焚曜千阳"], "must_not": [], "type": "field", "note": "歧义问法：武器类型 + 专武双答"}
+{"question": "芙宁娜推荐圣遗物", "must": ["黄金剧团"], "must_not": [], "type": "field", "note": "关系表接入规则层"}
+{"question": "钟离推荐圣遗物", "must": ["千岩"], "must_not": [], "type": "field", "note": "关系表接入规则层"}
+{"question": "胡桃圣遗物主词条", "must": ["暴击", "生命值"], "must_not": ["<sands>"], "type": "field", "note": "主词条需中文化"}
+{"question": "胡桃怎么养", "must": ["护摩之杖"], "must_not": [], "type": "field", "note": "培养意图聚合多项"}
+{"question": "胡桃元素是啥", "must": ["火"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "口语化问法"}
+{"question": "胡桃生日是几号", "must": ["7月15"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "口语化问法"}
+{"question": "刻晴是什么元素", "must": ["雷"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "冷门角色覆盖"}
+{"question": "夜兰武器类型是什么", "must": ["弓"], "must_not": ["图标：", "命座：", "天赋升级："], "type": "field", "note": "口语化问法"}
+{"question": "胡桃用什么圣遗物", "must": ["逐影猎人"], "must_not": [], "type": "field", "note": "口语化问法 -> 推荐圣遗物"}
+{"question": "胡桃主词条堆什么", "must": ["生命值", "暴击"], "must_not": ["<sands>"], "type": "field", "note": "口语化问法 -> 圣遗物主词条"}
+{"question": "钟离用什么圣遗物", "must": ["千岩"], "must_not": [], "type": "field", "note": "口语化问法 -> 推荐圣遗物"}
+{"question": "胡桃怎么练", "must": ["护摩之杖"], "must_not": [], "type": "field", "note": "口语化问法 -> 培养意图聚合"}
+{"question": "胡桃下位替代武器", "must": ["和璞鸢"], "must_not": [], "type": "field", "note": "下位替代武器接入规则层"}
+{"question": "胡桃配队", "must": ["行秋"], "must_not": [], "type": "field", "note": "配队接入规则层"}
+{"question": "渔获副属性", "must": ["充能"], "must_not": ["图标：", "简介："], "type": "field", "note": "武器副属性"}
+{"question": "钟离的专武", "must": ["暂未收录"], "must_not": [], "type": "field", "note": "关系表未收录时如实告知"}
+{"question": "胡桃培养材料", "must": ["霓裳花"], "must_not": ["护摩之杖"], "type": "field", "note": "「培养」不误判为推荐配置"}
+{"question": "胡桃", "must": ["胡桃", "5星", "火", "长柄武器", "基础属性", "专武：护摩之杖"], "must_not": ["命座：", "天赋升级：", "简介：", "生日："], "type": "field", "note": "角色默认回复 = 名字+图标+星级+元素+武器类型+突破加成+基础属性+专武"}
+{"question": "桑多涅", "must": ["桑多涅", "5星", "冰", "双手剑", "基础属性"], "must_not": ["命座：", "天赋升级：", "简介：", "专武："], "type": "field", "note": "冷门角色默认回复；无专武数据时跳过该行"}
+{"question": "雷电将军", "must": ["雷电将军", "5星", "长柄武器", "专武：薙草之稻光"], "must_not": ["命座：", "天赋升级："], "type": "field", "note": "角色默认回复含专武（第二个角色交叉验证）"}
+{"question": "胡桃厉害吗", "must": ["胡桃", "5星", "火"], "must_not": ["命座：", "天赋升级："], "type": "field", "note": "模糊问题 -> 走角色默认回复而非整档"}
+{"question": "渔获", "must": ["4星", "长柄武器", "510", "船歌", "充能"], "must_not": [], "type": "field", "note": "武器默认回复 = 全部字段"}
+{"question": "护摩之杖好用吗", "must": ["护摩之杖", "608", "暴击伤害"], "must_not": [], "type": "field", "note": "武器默认回复 = 全部字段"}
+{"question": "炽烈的炎之魔女", "must": ["火元素", "超载", "魔女的炎之花"], "must_not": [], "type": "field", "note": "圣遗物默认回复 = 全部字段"}
+{"question": "霓裳花", "must": ["璃月", "采集"], "must_not": [], "type": "field", "note": "材料默认回复 = 全部字段"}
+{"question": "妖鬼狂言百物语", "must": ["鹮巷物语", "天地万象"], "must_not": [], "type": "field", "note": "按具体成就名查询"}
+{"question": "「异色三连星」", "must": ["异色三连星", "对决者"], "must_not": [], "type": "field", "note": "按具体成就名查询（原先查不到）"}
+{"question": "动物园大亨", "must": ["捕获1只", "捕获30只", "捕获100只"], "must_not": ["{param"], "type": "field", "note": "同名多档：3 档必须全部列出（原先只剩最后一条）"}
+{"question": "色彩缤纷的答复", "must": ["30次元素反应", "150次元素反应", "300次元素反应"], "must_not": ["{param"], "type": "field", "note": "同名多档 + {param0} 由 detail.progress 还原"}
+{"question": "碛原引路人", "must": ["4个仙灵", "8个仙灵", "16个仙灵"], "must_not": ["{param"], "type": "field", "note": "{param0} 还原（另一辑抽样验证）"}
+{"question": "天地万象", "must": ["天地万象", "可提问具体成就名"], "must_not": [], "type": "field", "note": "问成就辑 -> 预览前 3 条 + 提示"}
+{"question": "圣缚", "must": ["暂无"], "must_not": [], "type": "field", "note": "空壳档案如实告知"}
+{"question": "胡桃和钟离分别推荐什么圣遗物", "must": ["逐影猎人", "千岩"], "must_not": [], "type": "agent", "note": "跨实体（Agent，需多步工具调用）"}

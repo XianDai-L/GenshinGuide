@@ -3,9 +3,12 @@ docs/
 index/
 models/
 data/relations.json
+data/relations_readable.md
 data/achievements.json
 data/achievement_manual.json
 data/uiaf_state.json
+data/window_state.json
+data/icon_cache/
 .cache/
 
 # ===== 敏感信息 =====

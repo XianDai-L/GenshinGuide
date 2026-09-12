@@ -170,6 +170,14 @@ def has_uiaf():
     return _uiaf_done is not None
 
 
+def counts():
+    """返回 (全部, 未完成, 已完成) 数量（手动标记优先 + UIAF 官方状态）。"""
+    achs = load_achievements()
+    total = len(achs)
+    done = sum(1 for a in achs if is_done(a.get("id")))
+    return total, total - done, done
+
+
 def groups(tab="all"):
     """按辑分组，返回 [(辑名, 已完成数, 总数), ...]。
 

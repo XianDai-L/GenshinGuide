@@ -71,6 +71,32 @@ def short(text):
     return text.replace("\n", "").replace("\r", "")
 
 
+def iter_nodes(node):
+    """兼容原始 JSON 把"列表"写成 dict（{id: {...}}）或 list 两种情况。"""
+    if isinstance(node, dict):
+        return list(node.values())
+    if isinstance(node, list):
+        return list(node)
+    return []
+
+
+_ACH_PARAM0 = re.compile(r"\{param0\}")
+
+
+def fill_achievement_params(desc, progress):
+    """把成就描述里的 {param0} 换成真实数值。
+
+    成就接口把数值放在 detail.progress —— 而 ambr 的 AchievementDetail 模型
+    只声明了 id/title/description/rewards，**把这个字段丢掉了**，所以必须走原始 JSON。
+    实测 1845 条里 163 条含占位符，形态只有 {param0} 一种，且 progress 100% 存在。
+
+    progress 缺失时保留占位符原样：宁可露出 {param0} 便于排查，也好过填错数值。
+    """
+    if not desc or progress is None:
+        return desc
+    return _ACH_PARAM0.sub(str(progress), desc)
+
+
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 
 
@@ -377,36 +403,42 @@ async def fetch_achievements(client):
 
     同时生成 data/achievements.json（含成就 id / 所属辑 / 名称 / 条件 / 原石），
     供成就管理模块与 UIAF（Yae 导出）的已完成状态匹配使用。
+
+    **不用 ambr 的 AchievementDetail 模型**：它只声明了 id/title/description/rewards，
+    会把原始 JSON 里的 progress 丢掉，而描述里的 {param0} 值正是 progress
+    （如「融化{param0}个晶石」progress=15）。因此改走 client._request() 拿原始数据
+    （同坑 #6 处理 dailyDungeon 的思路）。顺带：一次请求拿全量，不再逐分类 sleep。
     """
-    cats = await client.fetch_achievement_categories()
+    raw = await client._request("achievement", use_cache=False)
     count = 0
     records = []
-    for cat in cats:
-        cd = cat.model_dump()
-        cat_name = cd.get("name", "")
+    for cat in iter_nodes(raw.get("data")):
+        cat_name = cat.get("name", "")
         if not cat_name:
             continue
         lines = [f"{cat_name}（成就）"]
         total = 0
-        for ach in cd.get("achievements") or []:
-            for det in ach.get("details") or []:
+        for ach in iter_nodes(cat.get("achievementList")):
+            for det in iter_nodes(ach.get("details")):
                 title = det.get("title", "")
-                desc = short(det.get("description", ""))
-                primos = sum(r.get("amount", 0) for r in (det.get("rewards") or []))
-                if title:
-                    lines.append(f"【{title}】{desc}" + (f"（奖励：{primos}原石）" if primos else ""))
-                    records.append({
-                        "id": det.get("id"),
-                        "set": cat_name,
-                        "name": title,
-                        "cond": desc,
-                        "reward": primos,
-                    })
-                    total += 1
+                if not title:
+                    continue
+                desc = short(fill_achievement_params(
+                    det.get("description", ""), det.get("progress")
+                ))
+                primos = sum((r or {}).get("count", 0) for r in iter_nodes(det.get("rewards")))
+                lines.append(f"【{title}】{desc}" + (f"（奖励：{primos}原石）" if primos else ""))
+                records.append({
+                    "id": det.get("id"),
+                    "set": cat_name,
+                    "name": title,
+                    "cond": desc,
+                    "reward": primos,
+                })
+                total += 1
         with io.open(os.path.join(OUT_DIR, f"成就_{safe_name(cat_name)}.txt"), "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         count += total
-        await asyncio.sleep(1)
     if records:
         os.makedirs(os.path.dirname(ACH_JSON), exist_ok=True)
         with io.open(ACH_JSON, "w", encoding="utf-8") as f:

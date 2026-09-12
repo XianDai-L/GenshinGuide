@@ -26,6 +26,13 @@ import achievement as A
 ACHIEVE_STYLE = """
 QWidget#setCard { background: #262a3a; border-radius: 10px; }
 QWidget#setCard:hover { background: #2d3245; border: 1px solid rgba(212,182,106,0.45); }
+QWidget#gridBox { background: transparent; }
+QPushButton#backChatBtn {
+    background: rgba(212,182,106,0.16); color: #f5e6c8; border: none;
+    border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: bold;
+    text-align: left;
+}
+QPushButton#backChatBtn:hover { background: rgba(212,182,106,0.34); color: #ffffff; }
 QWidget#achCard { background: #262a3a; border-radius: 12px; border: 1px solid rgba(212,182,106,0.22); }
 QWidget#achRow { background: #262a3a; border-radius: 8px; }
 QWidget#achRow:hover { background: #2d3245; }
@@ -200,6 +207,8 @@ def open_search(name):
 class AchievePanel(QWidget):
     """补成就模式面板。"""
 
+    back_to_chat = Signal()  # 面板内「返回问答」按钮：通知主窗口切回聊天
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(ACHIEVE_STYLE)
@@ -218,19 +227,27 @@ class AchievePanel(QWidget):
         root.setContentsMargins(8, 6, 8, 8)
         root.setSpacing(6)
 
+        # 面板内「返回问答」：显式引导，避免用户不知道如何退出补成就模式
+        self.btn_back_chat = QPushButton("‹ 返回问答")
+        self.btn_back_chat.setObjectName("backChatBtn")
+        self.btn_back_chat.setToolTip("返回聊天问答模式")
+        self.btn_back_chat.setCursor(Qt.PointingHandCursor)
+        self.btn_back_chat.clicked.connect(self.back_to_chat.emit)
+        root.addWidget(self.btn_back_chat)
+
         # 视图切换 + 导入导出
         sw = QHBoxLayout()
         sw.setSpacing(6)
-        self.btn_overview = QPushButton("🗂 成就总览")
         self.btn_card = QPushButton("🃏 成就卡片")
-        for b in (self.btn_overview, self.btn_card):
+        self.btn_overview = QPushButton("🗂 成就总览")
+        for b in (self.btn_card, self.btn_overview):
             b.setObjectName("viewBtn")
             b.setCheckable(True)
-        self.btn_overview.setChecked(True)
+        self.btn_card.setChecked(True)  # 默认打开成就卡片
         self.btn_overview.clicked.connect(lambda: self.switch_view("overview"))
         self.btn_card.clicked.connect(lambda: self.switch_view("card"))
-        sw.addWidget(self.btn_overview)
         sw.addWidget(self.btn_card)
+        sw.addWidget(self.btn_overview)
 
         self.btn_import = QPushButton("⬆ 导入成就")
         self.btn_export = QPushButton("⬇ 导出成就")
@@ -257,7 +274,8 @@ class AchievePanel(QWidget):
         self.page_grid = self._build_grid_page()
         self.page_list = self._build_list_page()
         self.page_card = self._build_card_page()
-        for p in (self.page_grid, self.page_list, self.page_card):
+        self.page_prompt = self._build_prompt_page()
+        for p in (self.page_grid, self.page_list, self.page_card, self.page_prompt):
             self.stack.addWidget(p)
         root.addWidget(self.stack, 1)
 
@@ -265,6 +283,24 @@ class AchievePanel(QWidget):
         self.toast = Toast(self)
         self.toast.undo_clicked.connect(self.do_undo)
         root.addWidget(self.toast)
+
+    def _build_prompt_page(self):
+        """未导入成就数据时的引导页。"""
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(0, 0, 0, 0)
+        title = QLabel("请先导入成就")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color:#f5e6c8; font-size:16px; font-weight:bold;")
+        sub = QLabel("点上方「⬆ 导入成就」选择 Yae 导出的 UIAF 文件")
+        sub.setAlignment(Qt.AlignCenter)
+        sub.setWordWrap(True)
+        sub.setStyleSheet("color:#9a9aa6; font-size:11px;")
+        lay.addStretch(1)
+        lay.addWidget(title)
+        lay.addWidget(sub)
+        lay.addStretch(1)
+        return page
 
     def _build_grid_page(self):
         page = QWidget()
@@ -286,8 +322,16 @@ class AchievePanel(QWidget):
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        # viewport 与内部容器默认用调色板底色（白）填充，需一并设为透明
+        self.scroll.setStyleSheet(
+            "QScrollArea{background:transparent;border:none;}"
+            "QScrollArea > QWidget > QWidget{background:transparent;}"
+        )
+        self.scroll.viewport().setAutoFillBackground(False)
         self.grid_box = QWidget()
+        self.grid_box.setObjectName("gridBox")
+        self.grid_box.setAttribute(Qt.WA_StyledBackground, True)
         self.grid_lay = QGridLayout(self.grid_box)
         self.grid_lay.setSpacing(8)
         self.grid_lay.setContentsMargins(0, 0, 0, 0)
@@ -404,13 +448,15 @@ class AchievePanel(QWidget):
 
     # ===== 刷新 =====
     def refresh(self):
+        self._update_tab_counts()
         info = A.state_info()
-        if info.get("imported"):
-            self.state_lbl.setText(
-                f"已完成 {info['done']} 条 · 导入于 {info['when']}（重新导出后可点导入刷新）"
-            )
-        else:
-            self.state_lbl.setText("未导入成就数据，点「⬆ 导入成就」选择 Yae 导出的 UIAF 文件")
+        if not info.get("imported"):
+            self.state_lbl.setText("未导入成就数据")
+            self.stack.setCurrentWidget(self.page_prompt)
+            return
+        self.state_lbl.setText(
+            f"已完成 {info['done']} 条 · 导入于 {info['when']}（重新导出后可点导入刷新）"
+        )
         if self.btn_card.isChecked():
             self._refresh_filter()
             self._refresh_card()
@@ -422,6 +468,13 @@ class AchievePanel(QWidget):
         else:
             self._refresh_grid()
             self.stack.setCurrentWidget(self.page_grid)
+
+    def _update_tab_counts(self):
+        """刷新总览 Tab 的数量显示（半角括号）。"""
+        total, undone, done = A.counts()
+        self.tab_btns["all"].setText(f"全部({total})")
+        self.tab_btns["undone"].setText(f"未完成({undone})")
+        self.tab_btns["done"].setText(f"已完成({done})")
 
     def _refresh_grid(self):
         while self.grid_lay.count():
