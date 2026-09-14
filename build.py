@@ -30,6 +30,9 @@ DATA_ITEMS = [
     ("models", "models"),
     (os.path.join("data", "relations.json"), os.path.join("data", "relations.json")),
     (os.path.join("data", "achievements.json"), os.path.join("data", "achievements.json")),
+    # 合规文件必须随包分发：数据版权声明与许可范围
+    ("NOTICE", "NOTICE"),
+    ("LICENSE", "LICENSE"),
 ]
 
 
