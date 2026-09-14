@@ -1,3 +1,16 @@
+本项目以 MIT 许可开源，但**该许可仅覆盖本项目自有代码**。
+
+下列内容**不在** MIT 许可范围内，其版权归米哈游及相关权利人所有，
+仅供学习与个人使用，**禁止商业使用** —— 详见 NOTICE：
+
+  · docs/                 由 fetch_*.py 抓取的游戏数据
+  · data/relations.json   关系表（源自安柏计划的角色指南）
+  · data/achievements.json
+  · index/                由上述数据生成的向量索引
+  · 程序运行时下载的角色图标等美术素材
+
+===========================================================
+
 MIT License
 
 Copyright (c) 2026 Genshin Guide Overlay Contributors

@@ -23,6 +23,7 @@ import achieve_ui
 import agent
 import knowledge
 import llm
+import paths
 import rag
 
 from PySide6.QtCore import Qt, QPoint, QEvent, QTimer, QThread, Signal
@@ -46,12 +47,12 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(ROOT_DIR, "logs")
-QA_LOG_FILE = os.path.join(LOG_DIR, "qa.jsonl")
-DATA_DIR = os.path.join(ROOT_DIR, "data")
-WINDOW_STATE_FILE = os.path.join(DATA_DIR, "window_state.json")
-ICON_CACHE_DIR = os.path.join(DATA_DIR, "icon_cache")
+ROOT_DIR = paths.RESOURCE_DIR  # 兼容旧引用（只读资源根目录）
+LOG_DIR = paths.LOG_DIR
+QA_LOG_FILE = paths.QA_LOG_FILE
+DATA_DIR = paths.USER_DATA_DIR
+WINDOW_STATE_FILE = paths.WINDOW_STATE_FILE
+ICON_CACHE_DIR = paths.ICON_CACHE_DIR
 ICON_SIZE = 44  # 气泡内图标边长（px）
 ICON_TIMEOUT = 6  # 图标下载超时（秒）；数据源在境外，无代理时会走满超时
 _qa_lock = threading.Lock()
@@ -1109,5 +1110,84 @@ def main():
     sys.exit(app.exec())
 
 
+def _log_crash(exc_text):
+    """把启动期崩溃写入 crash.log。
+
+    打包为 --noconsole 后终端看不到任何输出，出问题只能靠这个文件排查。
+    """
+    try:
+        crash_file = os.path.join(paths.USER_DIR, "crash.log")
+        paths.ensure_parent(crash_file)
+        with io.open(crash_file, "a", encoding="utf-8") as f:
+            f.write(time.strftime("[%Y-%m-%d %H:%M:%S] ") + exc_text + "\n")
+    except Exception:
+        pass
+
+
+def _self_test():
+    """打包后自检：不开 UI，直接跑规则检索 + RAG，结果写入 selftest.txt。
+
+    用法：GenshinGuide.exe --selftest
+    --noconsole 打包后终端无输出，只能靠该文件确认冻结环境的数据与依赖是否正常。
+    """
+    import traceback as _tb
+
+    out = [
+        "frozen=%s" % paths.is_frozen(),
+        "resource_dir=%s" % paths.RESOURCE_DIR,
+        "user_dir=%s" % paths.USER_DIR,
+    ]
+    for label, p in (
+        ("docs", paths.DOCS_DIR),
+        ("index", paths.INDEX_DIR),
+        ("models", paths.MODELS_DIR),
+        ("relations", paths.RELATIONS_FILE),
+        ("achievements", paths.ACHIEVEMENTS_FILE),
+    ):
+        out.append("%s exists=%s" % (label, os.path.exists(p)))
+
+    for q in ("胡桃突破材料", "胡桃怎么养"):
+        try:
+            r = rag.search_character(q, apply_default=True)
+            out.append("[rule] %s => %s" % (q, (r[0] if r else None)))
+        except Exception:
+            out.append("[rule] %s => ERROR %s" % (q, _tb.format_exc()))
+
+    try:
+        r = rag.search_achievement("动物园大亨")
+        out.append("[ach] 动物园大亨 => %s" % (r[0] if r else None))
+    except Exception:
+        out.append("[ach] ERROR %s" % _tb.format_exc())
+
+    try:
+        rag.warmup()
+        out.append("[rag] is_ready=%s" % rag.is_ready())
+        hits, err = rag.search("元素反应 蒸发 倍率", top_k=2)
+        out.append("[rag] hits=%d err=%s" % (len(hits), err))
+        if hits:
+            out.append("[rag] top=%s" % hits[0][0][:80])
+    except Exception:
+        out.append("[rag] ERROR %s" % _tb.format_exc())
+
+    text = "\n".join(out)
+    try:
+        with io.open(os.path.join(paths.USER_DIR, "selftest.txt"), "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception:
+        pass
+
+
+def _entry():
+    if "--selftest" in sys.argv:
+        _self_test()
+        return
+    try:
+        main()
+    except Exception:
+        import traceback
+
+        _log_crash(traceback.format_exc())
+
+
 if __name__ == "__main__":
-    main()
+    _entry()

@@ -24,7 +24,9 @@ import re
 
 import ambr
 
-OUT_FILE = "D:/GenshinGuide/data/relations.json"
+# 基于脚本所在目录定位，避免写死绝对路径（其他人 clone 后可直接运行）
+ROOT = os.path.dirname(os.path.abspath(__file__))
+OUT_FILE = os.path.join(ROOT, "data", "relations.json")
 SLEEP = 0.5  # 礼貌间隔
 
 _W_NAME = re.compile(r"__([^_]+)__")

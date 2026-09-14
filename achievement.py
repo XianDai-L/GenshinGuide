@@ -14,10 +14,12 @@ import os
 import time
 import urllib.parse
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-ACH_JSON = os.path.join(ROOT, "data", "achievements.json")
-MANUAL_FILE = os.path.join(ROOT, "data", "achievement_manual.json")
-STATE_FILE = os.path.join(ROOT, "data", "uiaf_state.json")
+import paths
+
+ROOT = paths.RESOURCE_DIR  # 兼容旧引用
+ACH_JSON = paths.ACHIEVEMENTS_FILE
+MANUAL_FILE = paths.ACH_MANUAL_FILE
+STATE_FILE = paths.UIAF_STATE_FILE
 
 MYSH_URL = "https://www.miyoushe.com/ys/search?keyword="
 

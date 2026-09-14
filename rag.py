@@ -15,10 +15,12 @@ import re
 import sys
 import threading
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-DOCS_DIR = os.path.join(ROOT, "docs")
-INDEX_DIR = os.path.join(ROOT, "index")
-MODELS_DIR = os.path.join(ROOT, "models")
+import paths
+
+ROOT = paths.RESOURCE_DIR  # 兼容旧引用
+DOCS_DIR = paths.DOCS_DIR
+INDEX_DIR = paths.INDEX_DIR
+MODELS_DIR = paths.MODELS_DIR
 
 CHUNK_SIZE = 300
 CHUNK_OVERLAP = 50
@@ -410,7 +412,7 @@ def parse_talent_upgrade(query, raw_text):
     return f"天赋从{lo - 1}级升到{hi}级所需：\n{detail}\n合计：{_fmt(total)}"
 
 
-RELATIONS_FILE = os.path.join(ROOT, "data", "relations.json")
+RELATIONS_FILE = paths.RELATIONS_FILE
 _relations_cache = None
 
 

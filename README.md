@@ -1,5 +1,11 @@
 # 原神攻略助手（Genshin Guide Overlay）
 
+
+
+### 本质原神资料搜索和补成就卡片悬浮小窗口
+
+
+
 游戏内悬浮窗攻略助手。在原神（无边框窗口化）中按住 **Alt** 释放鼠标后，可以点击 / 拖动 / 锁定本窗口，输入问题即时获得攻略回答。
 
 适合直播时挂在游戏角落使用，也适合边玩边查资料。
@@ -22,6 +28,17 @@
 
 ## 快速开始
 
+### 方式一：下载免安装包（开箱即用）
+
+到 [Releases](https://github.com/XianDai-L/GenshinGuide/releases) 下载 `GenshinGuide_win64.zip`，
+解压到**可写目录**（如 `D:\GenshinGuide\`；**不要**放 `C:\Program Files\`），双击 `GenshinGuide.exe` 即可。
+
+- 包内已内置数据与向量索引，**离线可用**（仅 AI 问答与角色图标需要联网）
+- 需要 64 位 Windows 10 1809+ / Windows 11，**无需安装 Python**
+- 未签名，首次运行会被 SmartScreen 拦一次：点「更多信息 → 仍要运行」
+
+### 方式二：源码运行
+
 ```bash
 pip install -r requirements.txt
 python setup_data.py      # 拉取数据 + 构建索引（约 25 分钟）
@@ -38,11 +55,22 @@ python fetch_guides.py    # 关系表：专武/推荐圣遗物/主词条/配队/
 python rag.py rebuild     # 构建 RAG 向量索引
 ```
 
+### 自行打包 exe
+
+```bash
+python -m venv --system-site-packages .buildenv
+.buildenv\Scripts\python -m pip install pyinstaller
+.buildenv\Scripts\python build.py
+```
+
+产物在 `dist/GenshinGuide/`。
+
 ## 数据说明
 
-- 数据来自安柏计划（Project Ambr, `gi.yatta.moe`）的**公开 API**，由 `fetch_*.py` 脚本拉取，**不随仓库分发**
-- 安柏计划的数据源自米哈游游戏客户端，版权归米哈游所有；本项目仅做学习与展示用途
-- 客观事实数据（突破材料 / 武器属性 / 圣遗物效果）不受版权保护，可安全使用；请勿将原始数据用于商业分发
+- 数据来自安柏计划（Project Ambr, `gi.yatta.moe`）的**公开 API**，由 `fetch_*.py` 脚本拉取；**代码仓库本身不含数据**
+- 本仓库的 Release 免安装包**内置**了数据与向量索引，方便开箱即用
+- 安柏计划的数据源自米哈游游戏客户端，**版权归米哈游所有**；本项目是**非官方的粉丝作品**，仅供学习与个人使用
+- 无论使用源码方式还是免安装包，**均不得用于商业用途**；详见 [NOTICE](NOTICE)
 
 ## AI 增强（可选）
 
@@ -71,7 +99,7 @@ python rag.py rebuild     # 构建 RAG 向量索引
 
 **Q：回答被截断 / 显示不全？**
 - 数据层：`llm.py` 的 `max_tokens`（默认 1600）控制 LLM 输出上限，可调大
-- 显示层：聊天区使用 `QTextBrowser`，长文本自动完整显示；如仍异常请通过"日志"面板查看 `reply_len`
+- 显示层：聊天区使用气泡控件，长文本自动换行完整显示；如仍异常请通过"日志"面板查看 `reply_len`
 
 ## 目录结构
 
@@ -84,12 +112,24 @@ agent.py           Agent 层（工具定义 + 对话循环）
 fetch_ambr.py      数据拉取脚本（安柏计划）
 fetch_guides.py    关系表生成脚本（角色指南）
 setup_data.py      一键数据准备
+paths.py           路径管理（区分只读资源目录 / 可写用户数据目录）
+build.py           一键打包 exe（PyInstaller）
+build.spec         PyInstaller 打包配置
+NOTICE             数据来源与版权声明
 docs/              数据目录（由脚本生成，不入库）
 data/relations.json 关系表（由 fetch_guides.py 生成，不入库）
 index/  models/     RAG 索引与向量模型（自动生成，不入库）
 logs/              问答日志（不入库）
 ```
 
+## 声明
+
+- 本项目是**非官方粉丝作品**，与原神官方（米哈游 / HoYoverse）**没有任何关联**，未获官方授权、认可或赞助
+- 游戏名称、角色、文案、美术素材等版权归米哈游所有；数据经[安柏计划](https://gi.yatta.moe)（Project Ambr）公开 API 获取
+- 本项目**仅供学习与个人使用，禁止任何形式的商业使用**
+- 项目代码以 [MIT 许可](LICENSE) 开源（**仅覆盖代码，不覆盖内置数据**）；数据部分的权利与限制见 [NOTICE](NOTICE)
+- 若权利人认为本项目侵犯其权益，请提 Issue 联系作者，核实后将**立即删除相关内容**
+
 ## 免责声明
 
-本项目仅供学习与个人使用。请遵守米哈游用户协议与法律法规；游戏数据版权归米哈游及相关数据源所有，本项目不承担任何因使用者违规分发数据产生的责任。
+本项目按"现状"提供，不对使用结果作任何担保，也不承担因使用或分发产生的任何责任。请遵守米哈游用户协议与相关法律法规。

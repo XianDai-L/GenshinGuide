@@ -276,6 +276,15 @@ python rag.py count                  # 查看待入库字段块数（当前 7874
 32. **ambr 的 `AchievementDetail` 模型会丢掉 `progress` 字段**：成就描述里的 `{param0}`（163 处 / 21 个档案）数值就存在 `detail.progress`（如「融化{param0}个晶石」progress=15），但模型只声明了 `id/title/description/rewards`，Pydantic 默认忽略未声明字段 → 抓下来全是占位符。
     > 修法：`fetch_ambr.py` 的 `fetch_achievements()` 改走 `client._request("achievement")` 拿原始 JSON（同坑 #6 处理 `dailyDungeon` 的思路），再用 `fill_achievement_params()` 替换；`progress` 缺失时**保留占位符原样**（宁可露出便于排查，也不填错数值）。顺带：一次请求拿全量，去掉了逐分类 `sleep(1)`。
     > ⚠️ 回归防护：`eval/eval_qa.py` 会做「数据体检」，统计成就条件里残留的 `{param0}` 数量（应为 0）。
+33. **打包后 `rfc3987_syntax` 的 `.lark` 语法文件丢失** → RAG 一加载就 `FileNotFoundError`（`_internal\rfc3987_syntax\syntax_rfc3987.lark`）。这是 chromadb 依赖链上的**纯数据包**，PyInstaller 不会自动收集。
+    > 修法：`build.spec` 里把 `rfc3987_syntax` / `jsonschema_specifications` / `referencing` 一起 `collect_all`，并加进 `hiddenimports`。同类「纯数据包」漏收都会表现成"打包后某项功能静默不可用"，所以**打包后必须跑 `--selftest`**（见第 14 节），不要只看 exe 能不能启动。
+
+34. **手写 `.vmx` 缺少 PCIe 桥接段 → "SCSI0 没有可用的 PCIe 插槽"**：日志特征是 `Device ... requested without secondary PCI slots available` 与 `[msg.pci.noslotavail] No PCIe slot available for SCSI0`。VMware 自己生成的 vmx 默认带 `pciBridge0` + `pciBridge4~7`（各 `functions = "8"`），手写时漏掉就只剩主总线上的少量插槽，轮到 SCSI 控制器时分配不到。
+    > 修法：补 `pciBridge0/4/5/6/7`（`virtualDev = "pcieRootPort"`）与 `hpet0.present = "TRUE"`；并**删掉上一轮失败时被写进 vmx 的 `*.pciSlotNumber`**，强制下次开机重新分配。
+35. **UEFI 下从 Windows 官方 ISO 引导不会自动进安装程序**：画面停在 `Time out.` / `> EFI Network...`。日志特征：`SECUREBOOT: Image APPROVED.` → `About to do EFI boot: EFI VMware Virtual SATA CDROM Drive (0.0)` → 约 3 秒后 `Status upon boot failure: Time out`。
+    > 原因**不是"读不到盘"**（ISO 已被读出并通过 Secure Boot 校验），而是 Windows ISO 的引导程序在等 **「Press any key to boot from CD or DVD ...」**，不按键就超时退出、回退到 PXE。
+    > 修法：先用鼠标点进虚拟机窗口（状态栏会提示「要将输入定向到该虚拟机，请在虚拟机内部单击或按 Ctrl+G」），开机后立刻连续按空格键。
+    > 排查手法：`vmware.log` 里搜 `Guest:` / `CDROM:` / `SECUREBOOT`；要判断 ISO 是否真能 UEFI 引导，直接读字节即可 —— PVD 在扇区 16（`CD001`）、启动记录在扇区 17（`EL TORITO SPECIFICATION`）、启动目录条目里找 `platform = 0xEF` 的 UEFI 项（微软镜像的 EFI 启动镜像是 1.44MB FAT12，`MSDOS5.0` + `55AA`）。
 
 ---
 
@@ -343,6 +352,9 @@ panel.grab().save("shot.png")     # 截图检查视觉
 - **按具体成就名查询**：`rag.search_achievement()` 反查 73 辑（原先"「异色三连星」"完全查不到）
 - **成就问答修复**：同名多档逐行全部列出（1845 条全可查，原先 1551 条且只留最后一条）；`{param0}` 由 `detail.progress` 还原（163 处）
 - **关系表可读视图**：`data/relations_readable.md`，便于人工审阅数据质量
+- **可运行 exe（PyInstaller onedir）**：`paths.py` 拆「只读资源 / 可写用户数据」；`build.spec` 收集 chromadb / onnxruntime / tokenizers 等原生依赖并裁剪未用 Qt；`build.py` 一键打包并把 `docs/index/models/data` 拷到 exe 同级；`--selftest` 可在冻结环境自检（见第 14 节）
+- **VMware 虚拟机验证通过**：打包产物在干净 Win11 25H2（UEFI + vTPM，4C/6G/80GB）上**免装 Python 直接运行、问答正常**（虚拟机在 `D:\VM\GenshinGuide-Test\`）
+- **开源合规收尾**：新增 `NOTICE`（数据来源/非官方/禁商用/侵权即删），`LICENSE` 声明「MIT 仅覆盖代码」，README 补非官方声明与「下载免安装包」入口，删掉 `fetch_*.py` / `setup_data.py` 里写死的 `D:/GenshinGuide` 绝对路径
 
 **关系表已知数据问题**（详见 `data/relations_readable.md`，均未修）：
 - `配队` 含占位符（如 `丝柯克 + 爱可菲 + 任意Water系 + 任意`）
@@ -356,7 +368,7 @@ panel.grab().save("shot.png")     # 截图检查视觉
 3. **清理主词条英文注释**：4 个角色的源数据注释（需先定"是否删源数据内容"的口径）
 4. **图标体验**：可加启动预热缓存，或换国内可达的图床；**无代理用户目前拿不到图**（不影响正文）
 5. **关系表补全**：缺专武/下位替代的角色，目前如实回"暂未收录"，可考虑补数据源
-6. **打包 exe**（PyInstaller）：注意 fastembed / chromadb 依赖与体积
+6. **打包收尾**：图标 / Inno Setup 安装器 / 代码签名；装到 `Program Files` 时需把 `index` `models` 迁到用户目录（chroma、fastembed 要写锁文件）
 7. **体力规划 agent**：加"刷取材料计算 / 秘境排期"工具（数据基础已具备）
 8. **单元测试**：`_search_reply` / `parse_talent_upgrade` / `_execute_tool` / `search_achievement` 关键函数
 9. **日志轮转**：`logs/qa.jsonl` 目前无限增长
@@ -393,3 +405,47 @@ panel.grab().save("shot.png")     # 截图检查视觉
 | 图标 | `ICON_SIZE=44px` / `ICON_TIMEOUT=6s`（境外源，失败静默） |
 | 米游社搜索 | `https://www.miyoushe.com/ys/search?keyword={URL编码成就名}` |
 | 窗口尺寸 | 380×560（问答 / 补成就同窗口切换） |
+
+---
+
+## 14. 打包（可运行 exe）
+
+**构建环境**（装在 D 盘独立 venv，不污染系统 Python；用 `--system-site-packages` 复用已装的 PySide6/chromadb/fastembed，不重复下载）：
+
+```bash
+python -m venv --system-site-packages .buildenv
+.buildenv\Scripts\python -m pip install pyinstaller
+.buildenv\Scripts\python build.py      # 产物：dist/GenshinGuide/GenshinGuide.exe
+```
+
+**三个文件的职责**：
+
+| 文件 | 作用 |
+|---|---|
+| `paths.py` | 统一路径：源码态=项目根；冻结态资源=exe 同级、用户数据=`%APPDATA%\GenshinGuide`（可用 `GENSHIN_GUIDE_HOME` 覆盖） |
+| `build.spec` | 入口只打 `main.py`；`collect_all` 收集 chromadb / fastembed / onnxruntime / tokenizers / huggingface_hub / rfc3987_syntax 等；`excludes` 剔除抓取脚本与未用 Qt 模块 |
+| `build.py` | 调 PyInstaller + 把 `docs/ index/ models/ data/{relations,achievements}.json` 拷到 exe 同级 |
+
+**产物体积**（onedir，约 580MB）：`_internal/` 390MB（Python+Qt+依赖）、`models/` 91MB、`index/` 68MB、`docs/` 1.3MB。
+
+**自检与排错**（打包后必做，别只看能不能启动）：
+
+```bash
+dist\GenshinGuide\GenshinGuide.exe --selftest   # 结果写 <user_dir>\selftest.txt
+```
+- `--selftest` 不走 UI，直接跑规则检索 + 成就反查 + RAG 检索，并打印资源路径是否都存在
+- `--noconsole` 下看不到终端输出，**启动崩溃写 `<user_dir>\crash.log`**
+- 冻结环境里"能启动"≠"能用"：某个依赖的数据文件漏收会让某层检索静默失效（见坑 #33）
+
+**路径规则**（打包后与源码态不同，改代码时注意）：
+
+| 类型 | 源码态 | 冻结态 |
+|---|---|---|
+| 只读资源 `docs/ index/ models/ data/relations.json data/achievements.json` | 项目根 | exe 同级（`build.py` 拷过去） |
+| 可写数据 `settings.json logs/ data/window_state.json data/uiaf_state.json data/achievement_manual.json data/icon_cache/` | 项目根 | `%APPDATA%\GenshinGuide` |
+
+> 数据放 exe 同级而非 `_internal/`，是因为 chromadb / fastembed 需要可写的资源目录。
+> **未做**：安装器、图标、代码签名，以及「装到 `Program Files`（目录只读）时把 `index/models` 迁到用户目录」——当前 exe 只能在可写目录下跑。
+> **重复打包**：`build.py` 会先把旧产物改名到 `dist/_prev_<时间戳>`（受限环境禁止批量删除，故不删只改名），可手动清理。
+
+**虚拟机验证**：产物已在 VMware Workstation 17.5.1 + 干净 Windows 11 25H2（UEFI + Secure Boot + vTPM，4 vCPU / 6GB / 80GB 精简盘）上跑通，免装 Python、免装依赖，问答正常。建 VM 时有两个坑必须注意，见第 8 节 **#34**（手写 vmx 要带 PCIe 桥接段）和 **#35**（UEFI 下从 Windows ISO 引导要按键）。

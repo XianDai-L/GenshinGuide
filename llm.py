@@ -16,8 +16,10 @@
 import json
 import os
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-SETTINGS_FILE = os.path.join(ROOT, "settings.json")
+import paths
+
+ROOT = paths.RESOURCE_DIR  # 兼容旧引用
+SETTINGS_FILE = paths.SETTINGS_FILE
 
 PROVIDERS = {
     "deepseek": {
@@ -61,6 +63,7 @@ def save_settings(provider=None, api_key=None, model=None, use_history=None):
         s["model"] = model.strip()
     if use_history is not None:
         s["use_history"] = bool(use_history)
+    paths.ensure_parent(SETTINGS_FILE)
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=2)
     return s

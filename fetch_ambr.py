@@ -20,8 +20,10 @@ import sys
 
 import ambr
 
-OUT_DIR = "D:/GenshinGuide/docs/gamedata"
-ACH_JSON = "D:/GenshinGuide/data/achievements.json"
+# 基于脚本所在目录定位，避免写死绝对路径（其他人 clone 后可直接运行）
+ROOT = os.path.dirname(os.path.abspath(__file__))
+OUT_DIR = os.path.join(ROOT, "docs", "gamedata")
+ACH_JSON = os.path.join(ROOT, "data", "achievements.json")
 
 ELEMENT = {"Ice": "冰", "Fire": "火", "Water": "水", "Electric": "雷",
            "Wind": "风", "Rock": "岩", "Grass": "草"}

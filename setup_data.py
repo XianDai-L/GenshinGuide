@@ -14,21 +14,25 @@
     python rag.py rebuild         # 构建 RAG 向量索引
 """
 
+import os
 import subprocess
 import sys
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def run(cmd):
     print(f"\n>>> {' '.join(cmd)}")
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, cwd=ROOT)
 
 
 def main():
     print("开始准备数据……")
     steps = [
-        (["python", "fetch_ambr.py"], "基础数据（约 25 分钟）"),
-        (["python", "fetch_guides.py"], "关系表（约 2 分钟）"),
-        (["python", "rag.py", "rebuild"], "RAG 索引"),
+        # 用 sys.executable 而不是 "python"，避免 PATH 里没有 python 时失败
+        ([sys.executable, "fetch_ambr.py"], "基础数据（约 25 分钟）"),
+        ([sys.executable, "fetch_guides.py"], "关系表（约 2 分钟）"),
+        ([sys.executable, "rag.py", "rebuild"], "RAG 索引"),
     ]
     ok = 0
     for cmd, desc in steps:
